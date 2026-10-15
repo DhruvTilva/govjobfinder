@@ -15,9 +15,9 @@ import { noticeHref } from "@/lib/status";
 import { todayIST } from "@/pipeline/dates";
 import { getI18n } from "@/lib/i18n-server";
 import { formatDateL, qualName, sectorName, stateName, timeAgoL, type Lang, type MessageKey, type T } from "@/lib/i18n";
-import { JobRow, OrgBadge, qualList } from "@/components/NoticeCard";
+import { JobRow, qualList } from "@/components/NoticeCard";
 import { AlertsCard } from "@/components/AlertsCard";
-import { BookmarkIcon, CalendarIcon, ChevronRight, ClockIcon, DocIcon, PinIcon, SearchIcon, ShieldIcon } from "@/components/icons";
+import { ChevronRight,DocIcon, PinIcon, SearchIcon, ShieldIcon } from "@/components/icons";
 import { JsonLd } from "@/components/JsonLd";
 import { SITE_NAME, siteUrl } from "@/lib/site";
 
@@ -100,7 +100,7 @@ export default async function HomePage({ searchParams }: Props) {
       <div className="border-b border-line bg-navy-50">
         <div className="container-page flex flex-wrap items-center justify-between gap-2 py-2 text-xs text-body">
           <span className="flex items-center gap-1.5">
-            <ClockIcon className="h-3.5 w-3.5 text-ok" />
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok" />
             {t("home.checked")} <strong className="text-ink">{checked}</strong>
           </span>
           {counts.closingThisWeek > 0 && (
@@ -117,7 +117,7 @@ export default async function HomePage({ searchParams }: Props) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-navy-700">
-                <ShieldIcon className="h-4 w-4 text-accent" /> {t("home.eyebrow")}
+                {t("home.eyebrow")}
               </p>
               <h1 className="mt-1 text-3xl sm:text-4xl">{t("home.title")}</h1>
               <p className="mt-2 text-[15px] text-muted">{t("home.subtitle")}</p>
@@ -163,7 +163,7 @@ export default async function HomePage({ searchParams }: Props) {
               ))}
             </HeroSelect>
             <button type="submit" className="btn-primary py-3 sm:col-span-1">
-              <SearchIcon /> <span className="sm:sr-only xl:not-sr-only">{t("home.search")}</span>
+              <span className="sm:sr-only xl:not-sr-only">{t("home.search")}</span>
             </button>
           </form>
 
@@ -230,7 +230,9 @@ export default async function HomePage({ searchParams }: Props) {
         <section aria-labelledby="state-grid" className="card p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
             <h2 id="state-grid" className="panel-title">
-              <PinIcon className="h-4 w-4 text-saffron" /> {t("states.title")}
+              {/* <PinIcon className="h-4 w-4 text-saffron" />  */}
+              <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-brand" />
+              {t("states.title")}
             </h2>
             <Link href="/states" className="text-xs font-bold text-brand hover:underline">
               {t("states.all")}
@@ -287,7 +289,7 @@ export default async function HomePage({ searchParams }: Props) {
             {feed.items.length ? (
               <div className="space-y-2.5">
                 {feed.items.map((n) => (
-                  <JobRow key={n.id} n={n} today={today} />
+                  <JobRow key={n.id} n={n} today={today} badge={false} />
                 ))}
               </div>
             ) : (
@@ -313,10 +315,10 @@ export default async function HomePage({ searchParams }: Props) {
                 <span className="tag bg-ok-soft text-ok">{t("side.free")}</span>
               </div>
               <ul className="space-y-2 text-xs">
-                <Tool href="/tools/eligibility" icon={<CalendarIcon className="h-4 w-4" />} tone="bg-brand-soft text-brand" title={t("home.tool.age")} text={t("home.tool.ageText")} />
-                <Tool href="/qualifications" icon={<SearchIcon className="h-4 w-4" />} tone="bg-amber-100 text-amber-800" title={t("side.tool.quals")} text={t("side.tool.qualsText")} />
-                <Tool href="/saved" icon={<BookmarkIcon className="h-4 w-4" />} tone="bg-ok-soft text-ok" title={t("home.tool.saved")} text={t("home.tool.savedText")} />
-                <Tool href="/exams" icon={<DocIcon className="h-4 w-4" />} tone="bg-slate-100 text-slate-800" title={t("home.tool.exams")} text={t("home.tool.examsText")} />
+                <Tool href="/tools/eligibility" title={t("home.tool.age")} text={t("home.tool.ageText")} />
+                <Tool href="/qualifications" title={t("side.tool.quals")} text={t("side.tool.qualsText")} />
+                <Tool href="/saved" title={t("home.tool.saved")} text={t("home.tool.savedText")} />
+                <Tool href="/exams" title={t("home.tool.exams")} text={t("home.tool.examsText")} />
               </ul>
             </section>
 
@@ -331,7 +333,6 @@ export default async function HomePage({ searchParams }: Props) {
                   {recruiters.map((r) => (
                     <li key={r.slug}>
                       <Link href={`/organizations/${r.slug}`} className="flex items-center gap-2 py-1.5 hover:text-brand">
-                        <OrgBadge short={r.short} name={r.name} size="sm" />
                         <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{r.name}</span>
                         <span className="shrink-0 font-mono text-[10px] font-bold text-ok">{t("common.active", { n: r.n })}</span>
                       </Link>
@@ -368,26 +369,6 @@ export default async function HomePage({ searchParams }: Props) {
               </li>
             ))}
           </ul>
-        </section>
-
-        {/* 5. Verification & anti-fraud advisory */}
-        <section aria-labelledby="advisory" className="rounded-md border border-line-strong bg-slate-100 p-4 text-xs text-body">
-          <div className="flex items-start gap-3">
-            <ShieldIcon className="mt-0.5 h-6 w-6 shrink-0 text-brand" />
-            <div className="space-y-1">
-              <h2 id="advisory" className="text-[11px] font-bold uppercase tracking-wide text-ink">
-                {t("adv.title")}
-              </h2>
-              <p className="leading-relaxed">{t("adv.text")}</p>
-              <p className="flex flex-wrap gap-x-3 gap-y-1 pt-1 font-mono text-[11px] text-slate-500">
-                <span>{t("adv.tag1")}</span>
-                <span aria-hidden>•</span>
-                <span>{t("adv.tag2")}</span>
-                <span aria-hidden>•</span>
-                <span>{t("adv.tag3")}</span>
-              </p>
-            </div>
-          </div>
         </section>
       </div>
     </>
@@ -433,7 +414,7 @@ function Board({
     <div className={`flex flex-col overflow-hidden rounded-md border-2 bg-white shadow-sm ${c.frame}`}>
       <div className={`flex items-center justify-between gap-2 px-3 py-2 text-white ${c.head}`}>
         <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-white">
-          {icon} <span className="truncate">{title}</span>
+          <span className="truncate">{title}</span>
         </h3>
         <span className="shrink-0 rounded bg-white/20 px-1.5 py-0.5 font-mono text-[10px] font-bold">{badge}</span>
       </div>
@@ -481,11 +462,11 @@ function StateTile({ href, name, bodies, n, t }: { href: string; name: string; b
   );
 }
 
-function Tool({ href, icon, tone, title, text }: { href: string; icon: React.ReactNode; tone: string; title: string; text: string }) {
+function Tool({ href, title, text }: { href: string; title: string; text: string }) {
   return (
     <li>
       <Link href={href} className="flex items-start gap-2 rounded border border-line p-2 transition-colors hover:border-brand hover:bg-slate-50">
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded ${tone}`}>{icon}</span>
+        <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
         <span>
           <span className="block font-bold text-ink">{title}</span>
           <span className="block text-[11px] text-muted">{text}</span>

@@ -23,7 +23,7 @@ export function SavedLink() {
   }, []);
   const label = count ? `${t("header.saved")} (${count})` : t("header.saved");
   return (
-    <Link href="/saved" className="btn-secondary relative shrink-0 px-3 sm:px-4" aria-label={label}>
+    <Link href="/saved" className="btn-secondary relative shrink-0 px-3 py-1.5 sm:px-4 sm:py-2.5" aria-label={label}>
       <BookmarkIcon filled={count > 0} className={`h-4 w-4 ${count ? "text-accent" : ""}`} />
       <span className="hidden md:inline">{t("header.saved")}</span>
       {count > 0 && (

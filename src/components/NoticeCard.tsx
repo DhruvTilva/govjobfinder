@@ -43,7 +43,7 @@ export const placeOf = (n: Card, lang: Lang, t: T) => (n.stateName ? stateName(l
  * One recruitment or update, laid out as a dense row: identity and key facts on
  * the left; last date and the official-notice / details actions on the right.
  */
-export async function JobRow({ n, today }: { n: Card; today: string }) {
+export async function JobRow({ n, today, badge = true }: { n: Card; today: string; badge?: boolean }) {
   const { t, lang } = await getI18n();
   const ds = displayStatus(n, today);
   const isJob = n.kind === "recruitment";
@@ -68,7 +68,7 @@ export async function JobRow({ n, today }: { n: Card; today: string }) {
       }`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
-        <OrgBadge short={n.orgShort} name={n.orgName} tone={urgent ? "urgent" : "default"} />
+        {badge && <OrgBadge short={n.orgShort} name={n.orgName} tone={urgent ? "urgent" : "default"} />}
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             {!isJob && <span className="tag bg-brand-soft uppercase text-brand">{t(`kind.${n.kind}` as MessageKey)}</span>}

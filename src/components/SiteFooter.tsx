@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { LogoMark, RssIcon } from "./icons";
 import { SITE_NAME } from "@/lib/site";
 import { getI18n } from "@/lib/i18n-server";
 import { stateName } from "@/lib/i18n";
@@ -49,7 +48,6 @@ export async function SiteFooter() {
         ["/qualifications", t("footer.byQual")],
         ["/saved", t("home.tool.saved")],
         ["/exams", t("footer.exams")],
-        ["/feed.xml", t("footer.rss")],
       ],
     },
     {
@@ -70,7 +68,6 @@ export async function SiteFooter() {
         <div className="grid grid-cols-2 gap-6 border-b border-slate-800 pb-6 md:grid-cols-3 lg:grid-cols-6">
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 text-white">
-              <LogoMark className="h-8 w-8" />
               <span className="text-sm font-bold">{SITE_NAME}</span>
             </Link>
             <p className="mt-3 leading-relaxed text-slate-400">{t("footer.about")}</p>
@@ -89,10 +86,6 @@ export async function SiteFooter() {
           <div className="flex shrink-0 items-center gap-4">
             <Link href="/about" className="hover:text-white">
               {t("footer.how")}
-            </Link>
-            <span aria-hidden>•</span>
-            <Link href="/feed.xml" className="inline-flex items-center gap-1 hover:text-white">
-              <RssIcon className="h-3.5 w-3.5" /> RSS
             </Link>
           </div>
         </div>
