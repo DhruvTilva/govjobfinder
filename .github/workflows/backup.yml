@@ -1,0 +1,33 @@
+name: Database backup
+
+# Daily logical backup kept as a workflow artifact for 14 days.
+# The dump contains admin password hashes and audit data: keep the repository private,
+# or replace the upload step with encrypted off-site storage.
+on:
+  schedule:
+    - cron: "40 20 * * *" # 02:10 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump database
+        run: /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges --schema=public --file=govjobfinder-$(date -u +%Y%m%d).dump
+        env:
+          DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: "*.dump"
+          retention-days: 14

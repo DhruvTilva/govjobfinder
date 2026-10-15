@@ -1,0 +1,43 @@
+name: Collect notices
+
+# Scans due sources, processes new links and closes expired notices.
+# Each run is incremental and safe to re-run; overlapping runs are prevented.
+on:
+  schedule:
+    # Every 2 hours at minute 17 (scheduled runs can be delayed by GitHub at busy times).
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      reprocess_review:
+        description: "Re-extract unedited items in the review queue first"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collect-notices
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    # Some government sites restrict non-Indian IPs. If many sources fail from GitHub's
+    # runners, register a self-hosted runner in India and set the repository variable
+    # COLLECT_RUNNER to its label (see docs/OPERATIONS.md).
+    runs-on: ${{ vars.COLLECT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run pipeline
+        run: npm run pipeline -- --budget 25 ${{ inputs.reprocess_review && '--reprocess-review' || '' }}
+        env:
+          DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
+          CRAWLER_USER_AGENT: ${{ vars.CRAWLER_USER_AGENT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
