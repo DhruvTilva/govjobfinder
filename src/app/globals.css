@@ -34,7 +34,8 @@
   --font-sans: var(--font-inter), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
   /* Headings use Inter too; the "serif" token is kept so existing classes keep working. */
   --font-serif: var(--font-inter), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* "Mono" now uses the body font too — it only styles tags, dates and counts. */
+  --font-mono: var(--font-inter), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -94,7 +95,7 @@
   }
 
 @utility tag {
-    @apply inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-bold leading-tight;
+    @apply inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-bold leading-tight tabular-nums;
   }
 
 @utility btn {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { RssIcon } from "./icons";
 import { useT } from "./LangProvider";
 
 type Opt = { slug: string; name: string };
@@ -38,7 +37,7 @@ export function AlertsCard({ states, sectors, qualifications, siteUrl }: { state
     <section className="relative overflow-hidden rounded-xl bg-navy-950 p-5 text-white shadow-md" aria-labelledby="alerts-h">
       <span aria-hidden className="pointer-events-none absolute -bottom-8 -right-8 h-32 w-32 rounded-full bg-[#fd651e]/15" />
       <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#fdba8c]">
-        <RssIcon className="h-3.5 w-3.5" /> {t("alerts.eyebrow")}
+        {t("alerts.eyebrow")}
       </p>
       <h2 id="alerts-h" className="mt-1 text-xl font-bold leading-tight text-white">
         {t("alerts.title")}
