@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* Design tokens — palette and type carried over from demo-site.html. */
+@theme {
+  --color-navy-950: #00142f;
+  --color-navy-900: #0f294a;
+  --color-navy-700: #30476a;
+  --color-navy-500: #485f83;
+  --color-navy-100: #dce9ff;
+  --color-navy-50: #eff4ff;
+  --color-surface: #f1f5f9;
+  --color-ink: #0f172a;
+  --color-body: #334155;
+  --color-muted: #64748b;
+  --color-line: #dbe3ef;
+  --color-line-strong: #cbd5e1;
+  /* Section palette from the second design reference (code.html). */
+  --color-brand: #1e3a8a;
+  --color-brand-hover: #2563eb;
+  --color-brand-soft: #dbeafe;
+  --color-saffron: #d97706;
+  --color-saffron-dark: #b45309;
+  --color-gov-green: #15803d;
+  --color-footer: #051021;
+  --color-accent: #a73a00;
+  --color-accent-soft: #ffdbce;
+  --color-urgent: #b45309;
+  --color-urgent-soft: #fef3c7;
+  --color-ok: #15803d;
+  --color-ok-soft: #dcfce7;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fee2e2;
+
+  --font-sans: var(--font-inter), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+  /* Headings use Inter too; the "serif" token is kept so existing classes keep working. */
+  --font-serif: var(--font-inter), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-surface);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3 {
+    color: var(--color-ink);
+    font-family: var(--font-serif);
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.75rem !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    background-size: 1.1rem;
+    text-overflow: ellipsis;
+  }
+  select::-ms-expand {
+    display: none;
+  }
+  :focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@utility container-page {
+    @apply mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8;
+  }
+
+@utility card {
+    @apply rounded-md border border-line-strong bg-white shadow-sm;
+  }
+
+@utility panel-title {
+    @apply flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink;
+  }
+
+@utility btn-brand {
+    @apply btn bg-brand text-white hover:bg-brand-hover;
+  }
+
+@utility tag {
+    @apply inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[10px] font-bold leading-tight;
+  }
+
+@utility btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50;
+  }
+
+@utility btn-primary {
+    @apply btn bg-navy-950 text-white hover:bg-navy-900;
+  }
+
+@utility btn-secondary {
+    @apply btn border border-line bg-white text-navy-950 hover:bg-navy-50;
+  }
+
+@utility btn-accent {
+    @apply btn bg-accent text-white hover:bg-[#8a3000];
+  }
+
+@utility input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-100;
+  }
+
+@utility label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-muted;
+  }
+
+@utility chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
