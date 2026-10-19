@@ -44,8 +44,8 @@ export default async function AboutPage() {
       <h1 className="mb-4 mt-3 text-3xl font-bold">How we collect and verify notices</h1>
       <div className="space-y-4 text-[15px] leading-relaxed">
         <p>
-          {SITE_NAME} monitors {fresh.sourcesMonitored} official recruitment websites — public service commissions, staff selection boards, police recruitment boards,
-          central recruiters, PSUs and research organisations across all 28 states and 8 Union Territories. The last automatic check finished{" "}
+          {SITE_NAME} is set up to monitor {fresh.sourcesConfigured} official recruitment websites ({fresh.sourcesMonitored} checked successfully in the last 3 days) — public service commissions, staff selection boards, police recruitment boards,
+          central recruiters, PSUs and research organisations across all 28 states and 8 Union Territories. The most recent successful check of a website was{" "}
           {fresh.lastRunAt ? timeAgo(fresh.lastRunAt) : "— no check has completed yet"}.
         </p>
         <ol className="list-decimal space-y-2 pl-5">

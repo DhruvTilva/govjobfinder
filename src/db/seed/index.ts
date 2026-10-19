@@ -1,10 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DB } from "../client";
 import { states, sectors, qualifications, organizations, sources, exams } from "../schema";
 import { SECTORS, QUALIFICATIONS } from "./taxonomy";
 import { STATES, type BodyCategory } from "./states";
 import { CENTRAL_ORGS, STATE_SCOPED_CENTRAL_SLUGS } from "./central";
 import { EXAMS } from "./exams";
+import { LISTING_PAGES } from "./listings";
 import { slugify } from "@/lib/text";
 import { hostnameOf, isGovDomain } from "@/lib/url";
 
@@ -74,6 +75,14 @@ export async function seedReferenceData(db: DB) {
       if (orgId.inserted) counts.organizations++;
       const isPortal = b.category === "portal";
       const priority = isPortal ? 3 : 2;
+      if (!isPortal && isGovDomain(host)) {
+        // A body re-categorised from "portal" (e.g. OJAS): upgrade its source if it still has
+        // the untouched portal defaults (review-only, priority 3).
+        await db
+          .update(sources)
+          .set({ trust: "trusted", priority, intervalMinutes: INTERVAL_BY_PRIORITY[priority], updatedAt: new Date() })
+          .where(and(eq(sources.url, b.url), eq(sources.trust, "review"), eq(sources.priority, 3)));
+      }
       counts.sources += await insertSource(db, {
         organizationId: orgId.id,
         name: b.short ?? b.name,
@@ -170,6 +179,19 @@ async function insertSource(
   db: DB,
   s: { organizationId: number; name: string; url: string; scan: boolean; priority: number; trust: "trusted" | "review"; allowedDomains: string[] },
 ) {
+  const listing = LISTING_PAGES[s.url];
+  if (listing) {
+    const allowedDomains = [...new Set([...s.allowedDomains, ...(listing.domains ?? [])])];
+    // Move an untouched existing source (still on the home page) to its listing page.
+    const [taken] = await db.select({ id: sources.id }).from(sources).where(eq(sources.url, listing.url));
+    if (!taken) {
+      await db
+        .update(sources)
+        .set({ url: listing.url, allowedDomains, contentHash: null, etag: null, lastModified: null, nextCheckAt: null, updatedAt: new Date() })
+        .where(eq(sources.url, s.url));
+    }
+    s = { ...s, url: listing.url, allowedDomains };
+  }
   const r = await db
     .insert(sources)
     .values({

@@ -9,7 +9,6 @@ import {
   notices,
   NOTICE_KINDS,
   organizations,
-  pipelineRuns,
   qualifications,
   sectors,
   sources,
@@ -172,7 +171,7 @@ function buildWhere(f: Filters, defaultKind: NoticeKind | "any"): SQL {
       sql`exists (select 1 from ${noticeQualifications} nq join ${qualifications} q on q.id = nq.qualification_id where nq.notice_id = ${notices.id} and q.slug = ${f.qual})`,
     );
   }
-  if (f.posted) conds.push(gte(sql`coalesce(${notices.publishedAt}, ${notices.firstSeenAt})`, new Date(Date.now() - f.posted * 86_400_000)));
+  if (f.posted) conds.push(gte(sql`coalesce(${notices.publishedAt}, ${notices.firstSeenAt})`, new Date(Date.now() - f.posted * 86_400_000).toISOString()));
 
   const isRecruitmentView = kind === "recruitment";
   const status = f.status ?? (isRecruitmentView ? "active" : "all");
@@ -282,16 +281,19 @@ export async function activeCounts() {
 
 export async function freshness() {
   const db = await getDb();
-  const [[lastRun], [monitored]] = await Promise.all([
+  const configured = and(eq(sources.enabled, true), ne(sources.method, "manual"));
+  const [[agg]] = await Promise.all([
     db
-      .select({ finishedAt: pipelineRuns.finishedAt })
-      .from(pipelineRuns)
-      .where(inArray(pipelineRuns.status, ["success", "partial"]))
-      .orderBy(desc(pipelineRuns.finishedAt))
-      .limit(1),
-    db.select({ n: count() }).from(sources).where(and(eq(sources.enabled, true), ne(sources.method, "manual"))),
+      .select({
+        lastCheck: sql<Date | null>`max(${sources.lastSuccessAt})`,
+        configured: count(),
+        // Only sites that actually loaded recently count as "monitored".
+        working: sql<number>`count(*) filter (where ${sources.lastSuccessAt} > now() - interval '3 days')::int`,
+      })
+      .from(sources)
+      .where(configured),
   ]);
-  return { lastRunAt: lastRun?.finishedAt ?? null, sourcesMonitored: monitored.n };
+  return { lastRunAt: agg.lastCheck ? new Date(agg.lastCheck) : null, sourcesMonitored: agg.working, sourcesConfigured: agg.configured };
 }
 
 export async function listStates() {
@@ -464,7 +466,8 @@ export async function topRecruiters(limit = 6) {
 /** Recent (7-day) counts of follow-up notices for the homepage quick-access tiles. */
 export async function recentUpdateCounts() {
   const db = await getDb();
-  const since = new Date(Date.now() - 7 * 86_400_000);
+  // ISO string, not Date: a raw SQL expression gives the driver no column type to serialise a Date with.
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const rows = await db
     .select({ kind: notices.kind, n: count() })
     .from(notices)

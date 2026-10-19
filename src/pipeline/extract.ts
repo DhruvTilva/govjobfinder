@@ -22,13 +22,15 @@ export type Extracted = {
   jobType: "permanent" | "contract" | "apprentice" | "deputation" | "unknown";
   importantDates: ImportantDate[];
   qualificationText: string | null;
+  /** Other closing dates in the notice that disagree with `applyEnd` by more than 10 days. */
+  applyEndAlternatives: string[];
 };
 
 const LABELS: { key: "applyEnd" | "applyStart" | "examDate" | "noticeDate"; label: string; re: RegExp }[] = [
   {
     key: "applyEnd",
     label: "Last date to apply",
-    re: /(last|closing|end|final)\s*date(?:\s*(?:and|&)\s*time)?\s*(?:for|of|to)?\s*(?:the\s*)?(?:online\s*)?(?:submission|receipt|registration|applying|apply|application|payment)?(?:\s*of\s*(?:online\s*)?(?:applications?|forms?))?|applications?\s+(?:must|should)\s+(?:reach|be submitted)[^.]{0,40}?(?:by|on or before|before)|on\s+or\s+before|(?:online\s+)?(?:application|registration)\s+(?:closes?|ends?)\s*(?:on)?|closure\s+of\s+(?:online\s+)?(?:registration|application|editing)(?:\s+of\s+(?:application|details))?/i,
+    re: /(last|closing|end|final)\s*date(?:\s*(?:and|&)\s*time)?\s*(?:for|of|to)?\s*(?:the\s*)?(?:online\s*)?(?:submission|receipt|registration|applying|apply|application|payment)?(?:\s*of\s*(?:online\s*)?(?:applications?|forms?))?|applications?\s+(?:must|should)\s+(?:reach|be submitted)[^.]{0,40}?(?:by|on or before|before)|on\s+or\s+before|(?:online\s+)?(?:application|registration)\s+(?:closes?|ends?)\s*(?:on)?|closure\s+of\s+(?:online\s+)?(?:registration|application|editing)(?:\s+of\s+(?:application|details))?|(?:अंतिम|आखिरी)\s*(?:तिथि|तारीख|दिनांक)|शेवटची\s*(?:तारीख|दिनांक)|અંતિમ\s*તારીખ|শেষ\s*তারিখ|ಕೊನೆಯ\s*ದಿನಾಂಕ|கடைசி\s*(?:நாள்|தேதி)|చివరి\s*తేదీ|ଶେଷ\s*ତାରିଖ|അവസാന\s*തീയതി|(?:ਆਖਰੀ|ਅੰਤਿਮ)\s*(?:ਮਿਤੀ|ਿਮਤੀ|ਤਾਰੀਖ)/i,
   },
   {
     key: "applyStart",
@@ -43,21 +45,54 @@ const LABELS: { key: "applyEnd" | "applyStart" | "examDate" | "noticeDate"; labe
   { key: "noticeDate", label: "Notification date", re: /(?:date\s*of\s*(?:advertisement|notification|publication|issue)|dated|dt\.)/i },
 ];
 
-/** Searches for a label followed closely (within ~80 chars) by a date. */
-function labelledDate(text: string, label: RegExp): { iso: string; snippet: string } | null {
+type DateHit = { iso: string; snippet: string; index: number };
+
+/**
+ * A label used as a reference point rather than a statement of the date:
+ * "…within one year from the last date of receipt of application i.e. 20.07.2027".
+ */
+const REFERENCE_PREFIX = /\b(?:from|within|after|since|beyond|prior\s+to)\s+(?:[a-z]+\s+){0,4}?(?:the\s+)?$/i;
+
+/** Every place a label is followed closely (within ~90 chars) by a date. */
+function labelledDates(text: string, label: RegExp): DateHit[] {
   const re = new RegExp(label.source, "gi");
+  const out: DateHit[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
+    if (REFERENCE_PREFIX.test(text.slice(Math.max(0, m.index - 50), m.index))) continue;
     const window = text.slice(m.index, m.index + m[0].length + 90);
     const after = window.slice(m[0].length);
     const dm = new RegExp(DATE_PATTERN.source, "i").exec(after);
     if (dm) {
       const iso = parseDateMatch(dm);
-      if (iso) return { iso, snippet: clean(window.slice(0, m[0].length + (dm.index ?? 0) + dm[0].length)) ?? "" };
+      if (iso) out.push({ iso, index: m.index, snippet: clean(window.slice(0, m[0].length + (dm.index ?? 0) + dm[0].length)) ?? "" });
     }
   }
-  return null;
+  return out;
 }
+
+/** "Online Registration … 01-07-2026 to 21-07-2026" in an important-dates table. */
+const RANGE_RE = new RegExp(
+  `(?:on-?line\\s+)?(?:registration|application|apply(?:ing)?)(?:(?!${DATE_PATTERN.source})[\\s\\S]){0,120}?(${DATE_PATTERN.source})\\s*(?:to|till|upto|up\\s*to|-|–)\\s*(${DATE_PATTERN.source})`,
+  "gi",
+);
+
+function rangeDates(text: string): { start: DateHit; end: DateHit }[] {
+  const out: { start: DateHit; end: DateHit }[] = [];
+  for (const m of text.matchAll(RANGE_RE)) {
+    const snippet = clean(m[0]) ?? "";
+    const dates = [...m[0].matchAll(new RegExp(DATE_PATTERN.source, "gi"))].map((d) => parseDateMatch(d));
+    const [start, end] = dates.slice(-2);
+    if (start && end && start <= end) out.push({ start: { iso: start, index: m.index!, snippet }, end: { iso: end, index: m.index!, snippet } });
+  }
+  return out;
+}
+
+/** Deadlines for steps other than applying ("last date for printing the application"). */
+const NOT_APPLICATION_DEADLINE = /print|download|admit|call\s*letter|result|objection|interview|hard\s*copy\s*(?:of|for)\s*(?:the\s*)?admit/i;
+const REVISED = /revised|extended|postponed|re-?scheduled/i;
+
+const daysBetween =(a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
 
 export function extractAdvtNo(text: string): string | null {
   const m =
@@ -139,11 +174,31 @@ export function extractFields(text: string): Extracted {
   const t = text.replace(/\r/g, "").slice(0, 60_000);
   const dates: Partial<Record<(typeof LABELS)[number]["key"], string>> = {};
   const importantDates: ImportantDate[] = [];
+  const ranges = rangeDates(t);
+  let applyEndAlternatives: string[] = [];
   for (const l of LABELS) {
-    const hit = labelledDate(t, l.re);
+    let hits = labelledDates(t, l.re);
+    if (l.key === "applyEnd") hits = [...hits, ...ranges.map((r) => r.end)].filter((h) => !NOT_APPLICATION_DEADLINE.test(h.snippet));
+    if (l.key === "applyStart") hits = [...hits, ...ranges.map((r) => r.start)];
+    // The earliest mention wins (important-dates tables sit near the top of a notice),
+    // except that an explicitly revised/extended date supersedes the original.
+    hits.sort((a, b) => a.index - b.index);
+    const revised = l.key === "applyEnd" ? hits.filter((h) => REVISED.test(h.snippet) && !/fee|remit|payment/i.test(h.snippet)).sort((a, b) => b.iso.localeCompare(a.iso))[0] : undefined;
+    const hit = revised ?? hits[0];
     if (hit) {
       dates[l.key] = hit.iso;
       importantDates.push({ label: l.label, date: hit.iso, text: truncate(hit.snippet, 160) });
+      // Fee-payment deadlines a few days later are normal; anything further apart is a conflict.
+      // Dates superseded by a revision, and dates months earlier (age cut-offs, cited orders), are not.
+      if (l.key === "applyEnd") {
+        applyEndAlternatives = [
+          ...new Set(
+            hits
+              .filter((h) => daysBetween(h.iso, hit.iso) > 10 && !(revised && h.iso < revised.iso) && h.iso > addDays(hit.iso, -90))
+              .map((h) => h.iso),
+          ),
+        ];
+      }
     }
   }
   // A start date after the end date means one of them was mis-read; drop the start date.
@@ -173,6 +228,7 @@ export function extractFields(text: string): Extracted {
     jobType: extractJobType(t),
     importantDates,
     qualificationText: extractQualificationText(t),
+    applyEndAlternatives,
   };
 }
 

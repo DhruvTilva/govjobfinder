@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { overviewStats, reviewReasonCounts } from "@/lib/admin-queries";
 import { formatDateTime, timeAgo } from "@/lib/status";
-import { PageTitle, Pill, StatCard, Table } from "@/components/admin/ui";
+import { CheckPill, PageTitle, Pill, StatCard, Table } from "@/components/admin/ui";
 import { requestFullRun } from "../actions";
 
 export const metadata = { title: "Overview" };
+
+const CHECK_ORDER = ["new_notices", "no_new", "partial", "failed", "checking", "never", "disabled"];
 
 export default async function AdminHome() {
   const [s, reasons] = await Promise.all([overviewStats(), reviewReasonCounts()]);
   const health = Object.fromEntries(s.health.map((h) => [h.status, h.n]));
   const disc = Object.fromEntries(s.discoveryStates.map((d) => [d.state, d.n]));
+  const checks: Record<string, number> = Object.fromEntries(s.checkStates.map((c) => [c.status, c.n]));
   return (
     <>
       <PageTitle title="Overview">
@@ -30,7 +33,15 @@ export default async function AdminHome() {
         <StatCard label="Closed" value={s.closed} href="/admin/notices?status=closed" />
         <StatCard label="Cancelled / withdrawn" value={s.cancelled} />
         <StatCard label="Sources failing (3+)" value={s.failing.length} href="/admin/sources?health=failing" tone={s.failing.length ? "bad" : "good"} />
+        <StatCard label="Configured sources" value={s.totalSources} href="/admin/sources" />
+        <StatCard label="Sources never checked" value={checks.never ?? 0} href="/admin/sources?health=never" tone={checks.never ? "warn" : undefined} />
+        <StatCard label="Duplicates prevented" value={s.duplicatesPrevented} />
+        <StatCard label="Amendments applied" value={s.amendmentsApplied} />
       </div>
+      <p className="mt-3 text-sm text-muted">
+        Last successful source check: <strong className="text-ink">{s.lastSourceSuccessAt ? `${timeAgo(s.lastSourceSuccessAt)} (${formatDateTime(s.lastSourceSuccessAt)})` : "never"}</strong>
+        {" · "}Last new link discovered: <strong className="text-ink">{s.lastDiscoveryAt ? timeAgo(s.lastDiscoveryAt) : "never"}</strong>
+      </p>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <section>
@@ -90,7 +101,15 @@ export default async function AdminHome() {
         </section>
 
         <section>
-          <h2 className="mb-2 text-lg font-bold">Source health (enabled sources)</h2>
+          <h2 className="mb-2 text-lg font-bold">Source checks (last outcome)</h2>
+          <div className="flex flex-wrap gap-2 text-sm">
+            {CHECK_ORDER.filter((k) => checks[k]).map((k) => (
+              <Link key={k} href={`/admin/sources?check=${k}`} className="card flex items-center gap-2 px-3 py-2 hover:bg-navy-50">
+                <CheckPill value={k} /> {checks[k]}
+              </Link>
+            ))}
+          </div>
+          <h3 className="mb-2 mt-4 font-sans text-sm font-bold uppercase tracking-wide text-muted">Listing URL status (enabled sources)</h3>
           <div className="flex flex-wrap gap-2 text-sm">
             {Object.entries(health).map(([k, n]) => (
               <span key={k} className="card flex items-center gap-2 px-3 py-2">

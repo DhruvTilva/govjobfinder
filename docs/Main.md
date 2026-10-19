@@ -38,11 +38,13 @@ npm run pipeline -- --max 10                         # collect from 10 sources (
 | `npm run typecheck` | TypeScript |
 | `npm run db:generate` | Create a migration after changing `src/db/schema.ts` |
 | `npm run db:migrate` / `db:seed` | Apply migrations / insert missing reference data (idempotent) |
-| `npm run pipeline` | One collection pass (`--source 12,15`, `--max`, `--budget <min>`, `--reprocess-review`) |
+| `npm run pipeline` | One collection pass (`--source 12,15`, `--max`, `--budget <min>`, `--reprocess-review`, `--reprocess-published`) |
 | `npm run sources:validate` | Check every source URL and record its status |
 | `npm run admin:create` | Create or reset an admin/editor account |
 | `npm run e2e` / `e2e:cleanup` | Browser end-to-end checks (installed Edge/Chrome; publishes one notice with test data — run against a test database, then `e2e:cleanup`) |
 | `npx tsx scripts/qa-report.ts` · `inspect.ts` · `sample-text.ts` · `check-url.ts` | Data-quality tools: review-reason summary, notice dump, text snippets for tuning extractors, one-off URL check |
+| `npx tsx scripts/coverage-report.ts` | Regenerate [SOURCE_COVERAGE.md](SOURCE_COVERAGE.md) from the live database |
+| `npx tsx scripts/suggest-listings.ts` | Find the real notice listing page for sources whose configured page yields no links |
 
 ## Documentation
 
@@ -50,6 +52,7 @@ npm run pipeline -- --max 10                         # collect from 10 sources (
 - [OPERATIONS.md](OPERATIONS.md) — deployment, environment, scheduling, costs, backups, security, runbook.
 - [DATA_SOURCES.md](DATA_SOURCES.md) — how the supplied reference files were used, corrections made, URL validation results.
 - [HANDOVER.md](HANDOVER.md) — final report: delivered features, test results, limitations, next steps, go-live checklist.
+- [SOURCE_COVERAGE.md](SOURCE_COVERAGE.md) — generated per-source status: working, partial, failing.
 
 ## Tech
 

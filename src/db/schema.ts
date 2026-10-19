@@ -101,6 +101,9 @@ export type SourceConfig = {
   maxItems?: number;
 };
 
+export const SOURCE_CHECK_STATUSES = ["never", "checking", "new_notices", "no_new", "partial", "failed"] as const;
+export type SourceCheckStatus = (typeof SOURCE_CHECK_STATUSES)[number];
+
 export const sources = pgTable(
   "sources",
   {
@@ -126,6 +129,14 @@ export const sources = pgTable(
     lastCheckedAt: ts("last_checked_at"),
     lastSuccessAt: ts("last_success_at"),
     lastDiscoveryAt: ts("last_discovery_at"),
+    /**
+     * Outcome of the most recent check. "partial": the listing loaded but some of its
+     * documents could not be processed. Disabled sources are shown from `enabled`.
+     */
+    lastCheckStatus: text("last_check_status", { enum: SOURCE_CHECK_STATUSES }).notNull().default("never"),
+    /** Links found on the listing / new links, in the most recent successful check. */
+    lastCheckFound: integer("last_check_found"),
+    lastCheckNew: integer("last_check_new"),
     lastStatusCode: integer("last_status_code"),
     lastError: text("last_error"),
     consecutiveFailures: integer("consecutive_failures").notNull().default(0),

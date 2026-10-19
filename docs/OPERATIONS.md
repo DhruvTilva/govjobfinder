@@ -30,17 +30,28 @@ This is the runbook for deploying and running GovJobFinder. It assumes no prior 
 
 | Variable | Where | Purpose |
 |---|---|---|
-| `DATABASE_URL` | Web app (Vercel) | Supabase **transaction pooler** URL (port 6543). Required in production. |
+| `DATABASE_URL` | Web app (Vercel, local dev server) | Supabase **transaction pooler** URL (port 6543). Required in production. On port 6543 the client disables query pipelining (see §2.1). |
 | `DATABASE_POOL_MAX` | Web app | Connections per server instance (default 5; use 3 on Vercel). |
+| `WORKER_DATABASE_URL` (local `.env.local`) | CLI scripts | Session pooler URL (port 5432). When set, `npm run pipeline`, `db:migrate`, `db:seed` and the other scripts use it instead of `DATABASE_URL`, so one `.env.local` serves both the dev server and the collector. |
 | `NEXT_PUBLIC_SITE_URL` | Web app | Public base URL, e.g. `https://govjobfinder.in`. Used for canonical URLs, sitemap, RSS. |
 | `WORKER_DATABASE_URL` | GitHub secret | Supabase **session pooler or direct** URL (port 5432) for the collector, migrations and backups. |
 | `CRAWLER_USER_AGENT` | GitHub variable | Identifies the crawler, include a contact URL, e.g. `GovJobFinderBot/1.0 (+https://govjobfinder.in/about)`. |
 | `ANTHROPIC_API_KEY` | GitHub secret (optional) | Enables AI-assisted filling of fields the rules miss. Pipeline works without it. |
 | `ANTHROPIC_MODEL` | GitHub variable (optional) | Defaults to `claude-opus-5-5`. Set a different model id for another cost/quality trade-off. |
 | `GITHUB_DISPATCH_TOKEN`, `GITHUB_REPOSITORY` | Web app (optional) | Lets "Run pipeline now" in the admin start the GitHub workflow immediately (fine-grained token with *Actions: write* on this repo only). Without it, requests are queued for the next scheduled run. |
+| `GITHUB_DISPATCH_REF` | Web app (optional) | Branch the workflow is dispatched on (default `master`). |
 | `COLLECT_RUNNER` | GitHub variable (optional) | Runner label for the collector (see §6, geo-restrictions). |
 
 Never put the database URL or API keys in `NEXT_PUBLIC_*` variables — those are sent to browsers.
+
+### 2.1 Supabase connections (read this before changing `src/db/client.ts`)
+
+Verified against the project on 2026-10-19:
+
+* **Two URLs, two jobs.** The web app uses the transaction pooler (6543); the collector, migrations and seed use the session pooler (5432). The session pooler allows only `pool_size` (15 on this plan) simultaneous clients for the whole project, so a web app on 5432 runs out of connections quickly.
+* **No pipelining on 6543.** With postgres.js's default pipelining, Supavisor's transaction mode left connections hanging (backend stuck in `ClientRead`, page requests never returning) as soon as ~5 queries queued on one connection — every page does that. The client sets `max_pipeline: 0` on port 6543 (postgres.js treats 1 as "two in flight"). That setting also disables `sql.begin()`, which the web app does not use; migrations refuse to run on 6543 with an explicit error.
+* **One pool per process.** `getDb()` creates the pool once behind a shared promise. (An earlier version created a pool per concurrent caller, which leaked connections until the pooler refused new clients.)
+* **Passwords containing `@`, `:` or `/`** should be percent-encoded in the URL (`@` → `%40`).
 
 ## 3. First deployment (step by step)
 
@@ -48,6 +59,9 @@ Never put the database URL or API keys in `NEXT_PUBLIC_*` variables — those ar
 2. **Schema + reference data** (from your machine):
    ```bash
    DATABASE_URL="<session pooler URL>" npm run db:seed        # runs migrations, loads states/sectors/sources/exams
+   # If the tables were created by pasting the SQL into the Supabase editor, the migration log is
+   # empty and db:seed fails with "relation already exists" — record the applied migrations instead
+   # of dropping anything (see §10, "Migration log out of sync").
    DATABASE_URL="<session pooler URL>" npm run sources:validate # optional: records which source URLs load
    DATABASE_URL="<session pooler URL>" npm run admin:create -- --email you@example.com --name "Your Name"
    ```
@@ -83,6 +97,8 @@ Never put the database URL or API keys in `NEXT_PUBLIC_*` variables — those ar
 
 ## 5. Scheduling
 
+* Each source records the outcome of its latest check (`last_check_status`): *never checked*, *checking now*, *ok, new notices*, *ok, nothing new*, *partial* (listing loaded but some documents failed), *failed*; disabled sources are shown as disabled. Counts are on `/admin`, filters on `/admin/sources`.
+* A source left at *checking* by a crashed or cancelled run is set to *failed* ("Check was interrupted") at the start of the next run.
 * `collect.yml` runs every 2 hours (`17 */2 * * *`). Each source has its own interval (priority 1: 2 h, 2: 6 h, 3: 12 h), so a run only scans sources that are due. Failing sources back off exponentially (up to 3 days) and appear in */admin* after 3 consecutive failures.
 * Runs heartbeat every 30 s; a run without a heartbeat for 30 min is marked failed so the next run can proceed.
 * GitHub may delay scheduled runs at busy times and, for repositories without activity for 60 days, may disable scheduled workflows ([GitHub docs](https://docs.github.com/en/enterprise-server@3.20/actions/using-workflows/disabling-and-enabling-a-workflow)). If the admin overview shows "Last successful pipeline run" older than ~6 hours, check *Actions*.
@@ -124,7 +140,18 @@ Never put the database URL or API keys in `NEXT_PUBLIC_*` variables — those ar
 * Supabase's REST API: RLS is enabled on every table with no policies, so the anon key exposes nothing. The app never uses the anon/service keys.
 * Dependencies: run `npm audit` in CI periodically; review before upgrading major versions.
 
-## 10. Local development
+## 10. Source coverage and data-quality tools
+
+| Command | Purpose |
+|---|---|
+| `npx tsx scripts/coverage-report.ts` | Regenerates `docs/SOURCE_COVERAGE.md` from the live database: working / collected-but-review-only / loads-but-no-links / failing / never checked, per source. |
+| `npx tsx scripts/suggest-listings.ts [ids]` | For sources whose page loads but yields no notice links (usually a home page), follows the site's own Recruitment/Careers links and reports which page would yield notices. Read-only; put confirmed URLs in `src/db/seed/listings.ts` and run `npm run db:seed` (moves untouched sources to the listing page). |
+| `npm run pipeline -- --reprocess-review` | Re-extract unedited review/archived items with the current rules. |
+| `npm run pipeline -- --reprocess-published` | Same, including unedited published items — use after fixing an extraction bug. Items reappear when the run processes them, so run it with a generous `--budget`. |
+
+**Migration log out of sync.** If `drizzle.__drizzle_migrations` is empty but the tables exist and are empty, record the migrations rather than dropping tables: insert one row per migration with `hash` = sha256 of the SQL file and `created_at` = the `when` value from `drizzle/meta/_journal.json` (`readMigrationFiles()` from `drizzle-orm/migrator` returns both).
+
+## 11. Local development
 
 ```bash
 npm install
@@ -132,6 +159,8 @@ npm run db:seed            # embedded PGlite database in ./.data (no accounts ne
 npm run admin:create -- --email you@example.com
 npm run dev                # http://localhost:3000
 npm run pipeline -- --max 10   # (stop the dev server first — PGlite allows one process)
+# With Supabase: put DATABASE_URL (6543) and WORKER_DATABASE_URL (5432) in .env.local;
+# the dev server and the pipeline can then run at the same time.
 npm test                   # unit + integration tests (in-memory PostgreSQL)
 ```
 For concurrent dev server + pipeline, set `DATABASE_URL` to any PostgreSQL (e.g. a Supabase dev project or local Docker Postgres).

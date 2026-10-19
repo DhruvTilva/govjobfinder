@@ -19,9 +19,15 @@ export const DEFAULT_EXCLUDE = [
 const KIND_RULES: [NoticeKind, RegExp][] = [
   ["answer_key", /\b(answer[\s-]?keys?|provisional keys?|final keys?|response sheets?)\b/i],
   ["admit_card", /\b(admit[\s-]?cards?|hall[\s-]?tickets?|call[\s-]?letters?|e-?admit|exam(?:ination)? city (?:intimation|slip))\b/i],
-  ["result", /\b(results?|merit[\s-]?lists?|select(?:ion|ed)[\s-]?(?:list|candidates)|(?:provisionally|finally) selected|wait(?:ing)?[\s-]?list(?:ed)?|screened[\s-]?in|(?:in)?eligib(?:le|ility)(?: (?:and|&) rejected)?(?: candidates)? lists?|rejected candidates|short[\s-]?listed|marks? (?:obtained|of)|cut[\s-]?off|final selection|scorecards?|qualified candidates|list of (?:eligible|successful|candidates))\b/i],
+  ["result", /\b(results?|recommend(?:ation|ed)[\s-]?(?:lists?|candidates)|merit[\s-]?lists?|select(?:ion|ed)[\s-]?(?:list|candidates)|(?:provisionally|finally) selected|wait(?:ing)?[\s-]?list(?:ed)?|screened[\s-]?in|(?:in)?eligib(?:le|ility)(?: (?:and|&) rejected)?(?: candidates)? lists?|rejected candidates|short[\s-]?listed|marks? (?:obtained|of)|cut[\s-]?off|final selection|scorecards?|qualified candidates|list of (?:eligible|successful|candidates))\b/i],
   ["syllabus", /\b(syllabus|scheme of (?:exam|examination)|exam(?:ination)? pattern)\b/i],
-  ["exam_date", /\b(exam(?:ination)? (?:schedule|dates?|calendar|programme)|(?:date|schedule) of (?:the )?(?:exam|examination|interview|conduct|conducting|cbt|test|skill test|written test|trade test)|interview schedule|skill test|(?:tentative )?programme (?:of|for) (?:the )?(?:exam|examination|interview|month)|tentative programme|time[\s-]?table|postpone(?:d|ment)|re-?schedul)/i],
+  ["exam_date", /\b(exam(?:ination)? (?:schedule|dates?|calendar|programme)|(?:date|schedule) of (?:the )?(?:exam|examination|interview|conduct|conducting|cbt|test|skill test|written test|trade test)|interview schedule|skill test|(?:tentative )?programme (?:of|for) (?:the )?(?:exam|examination|interview|month)|tentative programme|time[\s-]?table|postpone(?:d|ment)|re-?schedul|physical (?:endurance|efficiency|standard|measurement) tests?|\bPE[TS]\b|\bPST\b|document verification|counsel?ling|e-?dossiers?)/i],
+  // Process notices for applicants of an existing recruitment: useful on the official site,
+  // but neither a new vacancy nor one of the follow-up categories we list.
+  [
+    "other",
+    /\b(deficiency of documents|rejection of (?:the )?(?:candidature|incomplete)|scribe|user guide|print (?:your )?application|(?:general )?instructions? (?:to|for) (?:the )?candidates|distribution of vacanc(?:y|ies)|preferences? of departments?|exercise of option|speaking order|recruitment rules|frequently asked questions|faqs?)\b/i,
+  ],
   ["recruitment", /\b(recruit(?:ment)?|advertisement|advt\.?|vacanc(?:y|ies)|walk[\s-]?in|engagement of|applications? (?:are )?invited|apply online|online applications?|posts? of|notification for|direct recruitment|appointment of|contractual|deputation basis|apprentices?)\b|भर्ती|विज्ञापन/i],
 ];
 

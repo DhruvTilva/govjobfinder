@@ -59,7 +59,27 @@ const STATUS_CLS: Record<string, string> = {
   new: "bg-navy-100 text-navy-900",
   processed: "bg-ok-soft text-ok",
   ignored: "bg-slate-100 text-slate-600",
+  never: "bg-slate-100 text-slate-600",
+  checking: "bg-navy-100 text-navy-900",
+  new_notices: "bg-ok-soft text-ok",
+  no_new: "bg-ok-soft text-ok",
+  disabled: "bg-slate-200 text-slate-700",
 };
+
+/** Plain-language label for a source's last-check outcome. */
+export const CHECK_LABEL: Record<string, string> = {
+  never: "never checked",
+  checking: "checking now",
+  new_notices: "ok, new notices",
+  no_new: "ok, nothing new",
+  partial: "partial",
+  failed: "failed",
+  disabled: "disabled",
+};
+
+export function CheckPill({ value }: { value: string }) {
+  return <span className={`chip ${STATUS_CLS[value] ?? "bg-slate-100 text-slate-700"}`}>{CHECK_LABEL[value] ?? value}</span>;
+}
 
 export function Pill({ value }: { value: string }) {
   return <span className={`chip ${STATUS_CLS[value] ?? "bg-slate-100 text-slate-700"}`}>{value.replace(/_/g, " ")}</span>;

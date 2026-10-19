@@ -390,7 +390,7 @@ export async function requestFullRun() {
     const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/collect.yml/dispatches`, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" },
-      body: JSON.stringify({ ref: process.env.GITHUB_REF_NAME || "main" }),
+      body: JSON.stringify({ ref: process.env.GITHUB_DISPATCH_REF?.trim() || "master" }),
     }).catch(() => null);
     dispatched = !!res?.ok;
   }

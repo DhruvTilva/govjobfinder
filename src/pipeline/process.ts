@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, ne, gte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, ne, gte, or, sql } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import {
   discoveries,
@@ -105,12 +105,13 @@ function fetchErrorLabel(e: unknown): string {
 }
 
 /**
- * Re-queues auto-collected notices that are unpublished (review / archived /
- * rejected) so they are processed again with the current extraction rules.
- * Notices that editors touched, published notices and parents of follow-ups
- * are left alone. Returns the number re-queued.
+ * Re-queues auto-collected notices (by default the review queue) so they are processed
+ * again with the current extraction rules. Notices that editors touched and parents of
+ * follow-ups are always left alone. Including "published" re-extracts live notices too,
+ * e.g. after fixing an extraction bug; they reappear when the same run processes them.
+ * Returns the number re-queued.
  */
-export async function requeueForReprocessing(db: DB, statuses: ("needs_review" | "archived" | "rejected")[] = ["needs_review"]): Promise<number> {
+export async function requeueForReprocessing(db: DB, statuses: ("needs_review" | "archived" | "rejected" | "published")[] = ["needs_review"]): Promise<number> {
   const rows = await db
     .select({ id: notices.id })
     .from(notices)
@@ -148,6 +149,7 @@ function mergeAi(ex: Extracted, ai: AiNotice | null, sources: Record<string, Fie
     }
   };
   for (const [k, v] of Object.entries(ex)) {
+    if (k === "applyEndAlternatives") continue;
     if (v != null && v !== "unknown" && !(Array.isArray(v) && v.length === 0)) sources[k] = "notice";
   }
   if (!ai) return out;
@@ -175,21 +177,44 @@ function mergeAi(ex: Extracted, ai: AiNotice | null, sources: Record<string, Fie
   return out;
 }
 
+const ATTACHMENT_TEXT = /attachment|detailed|notification|advertisement|advt|click\s*here|download|view/i;
+
+/**
+ * Picks the PDF on a notice's landing page that is the notice itself: the link whose
+ * text/filename best matches the notice title, preferring attachment wording. With several
+ * candidates and no match, returns null rather than guessing (sidebars link unrelated PDFs).
+ */
+export function pickNoticePdf(links: { url: string; text: string }[], title: string): { url: string; text: string } | null {
+  if (links.length <= 1) return links[0] ?? null;
+  const scored = links.map((l, i) => {
+    const file = decodeURIComponent(l.url.split("?")[0].split("/").pop() ?? "").replace(/\.pdf$/i, "");
+    return { l, i, score: similarity(title, `${l.text} ${file}`) + (ATTACHMENT_TEXT.test(l.text) ? 0.35 : 0) };
+  });
+  const best = scored.sort((a, b) => b.score - a.score || a.i - b.i)[0];
+  return best.score >= 0.1 ? best.l : null;
+}
+
 /** Fetches the document, following an HTML landing page to its PDF when the page itself says little. */
 async function loadDocument(deps: ProcessDeps, d: DiscoveryRow, src: SourceCtx) {
   const get = deps.fetchDoc ?? ((u: string) => fetchDocument(deps.fetcher, u));
   const doc = await get(d.url);
   let notificationUrl = doc.contentType === "pdf" ? doc.finalUrl : null;
   let text = doc.text;
+  // Fingerprint of the notice itself: the followed PDF when the link was a landing page.
+  let hash = doc.hash;
   const domains = [...src.allowedDomains, ...(src.organization?.officialDomains ?? [])];
   if (doc.contentType === "html" && doc.text.length < 2500) {
-    const pdf = doc.pdfLinks.find((l) => isOfficialUrl(l.url, domains));
+    const pdf = pickNoticePdf(
+      doc.pdfLinks.filter((l) => isOfficialUrl(l.url, domains)),
+      tidyTitle(clean(d.linkText) ?? ""),
+    );
     if (pdf) {
       try {
         const inner = await get(pdf.url);
         if (inner.contentType === "pdf" && inner.text.length > 200) {
           notificationUrl = inner.finalUrl;
           text = `${doc.text}\n${inner.text}`;
+          hash = inner.hash;
         }
       } catch {
         /* landing page text is still usable */
@@ -197,7 +222,7 @@ async function loadDocument(deps: ProcessDeps, d: DiscoveryRow, src: SourceCtx) 
     }
   }
   const apply = doc.applyLinks.find((l) => isOfficialUrl(l.url, domains))?.url ?? null;
-  return { doc, text, notificationUrl, applyUrl: apply };
+  return { doc, text, hash, notificationUrl, applyUrl: apply };
 }
 
 export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: SourceCtx): Promise<ProcessOutcome> {
@@ -233,12 +258,17 @@ export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: 
   }
   const docText = loaded?.text ?? "";
   if (cls.confidence < 0.8 && docText && !amendment) cls = classify(linkText, docText);
+  // A title that states its own closing date ("… ( અંતિમ તારીખ 29-October-2026 )", "Last date: …")
+  // is an open recruitment, even when it never says "recruitment".
+  if (cls.confidence < 0.8 && !amendment && extractFields(linkText).applyEnd) cls = { kind: "recruitment", confidence: 0.85 };
 
-  // 2. Exact duplicate document already stored under another link.
-  if (loaded?.doc.hash) {
-    const [dup] = await db.select({ id: notices.id }).from(notices).where(eq(notices.docHash, loaded.doc.hash)).limit(1);
+  // 2. Exact duplicate document already stored under another link (same content, or the
+  // same official PDF reached directly from one listing and via a landing page from another).
+  if (loaded?.hash) {
+    const sameDoc = loaded.notificationUrl ? or(eq(notices.docHash, loaded.hash), eq(notices.notificationUrl, loaded.notificationUrl)) : eq(notices.docHash, loaded.hash);
+    const [dup] = await db.select({ id: notices.id }).from(notices).where(sameDoc).limit(1);
     if (dup) {
-      await db.update(discoveries).set({ state: "processed", noticeId: dup.id, docHash: loaded.doc.hash, lastError: null }).where(eq(discoveries.id, d.id));
+      await db.update(discoveries).set({ state: "processed", noticeId: dup.id, docHash: loaded.hash, lastError: null }).where(eq(discoveries.id, d.id));
       return "duplicate";
     }
   }
@@ -277,7 +307,7 @@ export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: 
         state: "processed",
         noticeId,
         kindGuess: cls.kind,
-        docHash: loaded?.doc.hash ?? null,
+        docHash: loaded?.hash ?? null,
         docContentType: loaded?.doc.contentType ?? null,
         docText: docText ? docText.slice(0, 20_000) : null,
         lastError: docError,
@@ -370,6 +400,7 @@ export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: 
     } else if (!f.applyEnd) reasons.push("Closing date not found");
     else if (f.applyEnd < today) status = "archived";
     else if (f.applyEnd > addDays(today, 400)) reasons.push("Closing date is implausibly far away");
+    if (status !== "archived" && f.applyEnd && ex.applyEndAlternatives.length) reasons.push("Notice gives conflicting closing dates");
   }
   if (status !== "archived" && reasons.length) status = "needs_review";
   if (status === "archived" && f.applyEnd && f.applyEnd < today) reasons.unshift("Closing date had already passed when discovered");
@@ -419,7 +450,7 @@ export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: 
       verification: "auto",
       reviewReasons: reasons,
       dedupeKey: d.fingerprint,
-      docHash: loaded?.doc.hash ?? null,
+      docHash: loaded?.hash ?? null,
       firstSeenAt: d.firstSeenAt,
       lastCheckedAt: now,
       publishedAt: status === "published" ? now : null,

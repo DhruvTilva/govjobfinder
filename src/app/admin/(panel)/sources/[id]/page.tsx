@@ -5,7 +5,7 @@ import { formatDateTime, timeAgo } from "@/lib/status";
 import { safeHref } from "@/lib/url";
 import { SourceEditor } from "@/components/admin/SourceEditor";
 import { SubmitButton } from "@/components/admin/ActionForm";
-import { Notice, PageTitle, Pill, Table } from "@/components/admin/ui";
+import { CheckPill, Notice, PageTitle, Pill, Table } from "@/components/admin/ui";
 import { sourceAction } from "../../../actions";
 
 export const metadata = { title: "Source" };
@@ -52,7 +52,10 @@ export default async function SourcePage({ params, searchParams }: { params: Pro
         <Info label="URL status">
           <Pill value={s.urlStatus} /> {s.lastStatusCode ? `HTTP ${s.lastStatusCode}` : ""}
         </Info>
-        <Info label="Last checked">{timeAgo(s.lastCheckedAt)}</Info>
+        <Info label="Last check">
+          <CheckPill value={s.enabled ? s.lastCheckStatus : "disabled"} /> {timeAgo(s.lastCheckedAt)}
+          {s.lastCheckFound != null && <span className="block text-xs text-muted">{s.lastCheckFound} link(s) on listing · {s.lastCheckNew ?? 0} new</span>}
+        </Info>
         <Info label="Last success">{s.lastSuccessAt ? formatDateTime(s.lastSuccessAt) : "never"}</Info>
         <Info label="Last new link">{s.lastDiscoveryAt ? formatDateTime(s.lastDiscoveryAt) : "never"}</Info>
         <Info label="Next scan">{s.nextCheckAt ? formatDateTime(s.nextCheckAt) : "on next run"}</Info>

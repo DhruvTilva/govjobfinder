@@ -18,6 +18,7 @@ import {
   states,
   type NoticeKind,
   type NoticeStatus,
+  type SourceCheckStatus,
 } from "@/db/schema";
 import { addDays, todayIST } from "@/pipeline/dates";
 
@@ -51,7 +52,43 @@ export async function overviewStats() {
       db.select({ n: count() }).from(pipelineRequests).where(sql`${pipelineRequests.pickedAt} is null`).then((r) => r[0].n),
       db.select({ state: discoveries.state, n: count() }).from(discoveries).groupBy(discoveries.state),
     ]);
-  return { activePublished, needsReview, discovered24h, closingSoon, closed, cancelled, published24h, byStatus, runs, failing, health, lastSuccessAt: lastSuccess[0]?.at ?? null, pending, discoveryStates };
+  const [checkStates, [extra]] = await Promise.all([
+    db
+      .select({ status: sql<string>`case when ${sources.enabled} then ${sources.lastCheckStatus} else 'disabled' end`, n: count() })
+      .from(sources)
+      .groupBy(sql`1`),
+    db
+      .select({
+        duplicates: sql<number>`(select coalesce(sum((stats->>'duplicate')::int), 0)::int from ${pipelineRuns})`,
+        amendments: sql<number>`(select coalesce(sum((stats->>'amendment_applied')::int), 0)::int from ${pipelineRuns})`,
+        lastCheckAt: sql<Date | null>`(select max(${sources.lastSuccessAt}) from ${sources})`,
+        lastDiscoveryAt: sql<Date | null>`(select max(${discoveries.firstSeenAt}) from ${discoveries})`,
+        totalSources: sql<number>`(select count(*)::int from ${sources})`,
+      })
+      .from(sql`(select 1) as x`),
+  ]);
+  return {
+    activePublished,
+    needsReview,
+    discovered24h,
+    closingSoon,
+    closed,
+    cancelled,
+    published24h,
+    byStatus,
+    runs,
+    failing,
+    health,
+    lastSuccessAt: lastSuccess[0]?.at ?? null,
+    pending,
+    discoveryStates,
+    checkStates,
+    duplicatesPrevented: extra.duplicates,
+    amendmentsApplied: extra.amendments,
+    lastSourceSuccessAt: extra.lastCheckAt ? new Date(extra.lastCheckAt) : null,
+    lastDiscoveryAt: extra.lastDiscoveryAt ? new Date(extra.lastDiscoveryAt) : null,
+    totalSources: extra.totalSources,
+  };
 }
 
 export type AdminNoticeFilter = { status?: NoticeStatus; kind?: NoticeKind; q?: string; source?: number; reason?: string; page?: number };
@@ -129,7 +166,7 @@ export async function referenceOptions() {
   return { states: st, sectors: se, qualifications: qu, organizations: orgs };
 }
 
-export type SourceFilter = { q?: string; health?: "failing" | "broken" | "disabled" | "never" | "ok"; page?: number };
+export type SourceFilter = { q?: string; health?: "failing" | "broken" | "disabled" | "never" | "ok"; check?: SourceCheckStatus; page?: number };
 
 export async function listSources(f: SourceFilter) {
   const db = await getDb();
@@ -140,6 +177,7 @@ export async function listSources(f: SourceFilter) {
   if (f.health === "disabled") conds.push(eq(sources.enabled, false));
   if (f.health === "never") conds.push(and(eq(sources.enabled, true), sql`${sources.lastSuccessAt} is null`)!);
   if (f.health === "ok") conds.push(and(eq(sources.consecutiveFailures, 0), isNotNull(sources.lastSuccessAt))!);
+  if (f.check) conds.push(and(eq(sources.enabled, true), eq(sources.lastCheckStatus, f.check))!);
   const where = conds.length ? and(...conds) : undefined;
   const page = f.page ?? 1;
   const noticeCount = sql<number>`(select count(*)::int from ${notices} where ${notices.sourceId} = ${sources.id} and ${notices.status} = 'published')`;

@@ -29,6 +29,8 @@ export type RunOptions = {
   timeBudgetMs?: number;
   /** Skip the "another run is active" check (single-source admin scans). */
   allowConcurrent?: boolean;
+  /** Injectable for tests. */
+  fetcher?: PoliteFetcher;
 };
 
 export type RunResult = { runId: number | null; status: string; stats: Record<string, number>; skipped?: string };
@@ -44,6 +46,8 @@ type Ctx = {
   taxonomy: Taxonomy;
   stats: Record<string, number>;
   deadline: number;
+  /** Sources whose listing loaded but some of whose documents failed in this run. */
+  partialSources: Set<number>;
 };
 
 function bump(stats: Record<string, number>, key: string, n = 1) {
@@ -85,6 +89,7 @@ async function scanSource(ctx: Ctx, src: SourceRow): Promise<void> {
   const { db } = ctx;
   const now = new Date();
   const config = (src.config ?? {}) as SourceConfig;
+  await db.update(sources).set({ lastCheckStatus: "checking" }).where(eq(sources.id, src.id));
   try {
     const res = await ctx.fetcher.fetch(src.url, { etag: src.etag, lastModified: src.lastModified, maxBytes: 6 * 1024 * 1024 });
     let found = 0;
@@ -131,6 +136,9 @@ async function scanSource(ctx: Ctx, src: SourceRow): Promise<void> {
         lastStatusCode: res.status,
         lastError: null,
         consecutiveFailures: 0,
+        lastCheckStatus: fresh ? "new_notices" : "no_new",
+        lastCheckFound: res.notModified ? src.lastCheckFound : found,
+        lastCheckNew: fresh,
         etag: res.headers["etag"] ?? null,
         lastModified: res.headers["last-modified"] ?? null,
         contentHash: linkHash,
@@ -156,6 +164,7 @@ async function scanSource(ctx: Ctx, src: SourceRow): Promise<void> {
         lastError: `${fe.code}: ${fe.message}`.slice(0, 500),
         lastStatusCode: fe.status ?? null,
         consecutiveFailures: failures,
+        lastCheckStatus: "failed",
         urlStatus: fe.code === "timeout" ? "timeout" : fe.code === "blocked" ? "blocked" : "broken",
         nextCheckAt: new Date(now.getTime() + backoff),
         updatedAt: now,
@@ -209,12 +218,20 @@ export async function runPipeline(db: DB, opts: RunOptions): Promise<RunResult> 
     const [active] = await db.select({ id: pipelineRuns.id }).from(pipelineRuns).where(and(eq(pipelineRuns.status, "running"), ne(pipelineRuns.trigger, "source"))).limit(1);
     if (active) return { runId: null, status: "skipped", stats: {}, skipped: `Run #${active.id} is still in progress` };
   }
+  // A source left "checking" with no run in progress was interrupted (crash, timeout, cancelled job).
+  const [anyRunning] = await db.select({ id: pipelineRuns.id }).from(pipelineRuns).where(eq(pipelineRuns.status, "running")).limit(1);
+  if (!anyRunning) {
+    await db
+      .update(sources)
+      .set({ lastCheckStatus: "failed", lastError: "Check was interrupted before it finished", updatedAt: new Date() })
+      .where(eq(sources.lastCheckStatus, "checking"));
+  }
 
   const [run] = await db
     .insert(pipelineRuns)
     .values({ trigger: opts.trigger, sourceId: opts.sourceIds?.length === 1 ? opts.sourceIds[0] : null })
     .returning({ id: pipelineRuns.id });
-  const ctx: Ctx = { db, runId: run.id, fetcher: new PoliteFetcher(), taxonomy: await loadTaxonomy(db), stats: {}, deadline: started + timeBudgetMs };
+  const ctx: Ctx = { db, runId: run.id, fetcher: opts.fetcher ?? new PoliteFetcher(), taxonomy: await loadTaxonomy(db), stats: {}, deadline: started + timeBudgetMs, partialSources: new Set() };
   const heartbeat = setInterval(() => {
     void db.update(pipelineRuns).set({ heartbeatAt: new Date(), stats: ctx.stats }).where(eq(pipelineRuns.id, run.id)).catch(() => undefined);
   }, 30_000);
@@ -262,7 +279,7 @@ export async function runPipeline(db: DB, opts: RunOptions): Promise<RunResult> 
         ),
       )
       .orderBy(asc(sources.priority), asc(discoveries.firstSeenAt))
-      .limit(opts.processLimit ?? 150);
+      .limit(opts.processLimit ?? 400);
     const srcMap = await sourceContexts(db, [...new Set(pending.map((p) => p.d.sourceId))]);
 
     await mapLimit(pending, 4, async ({ d }) => {
@@ -283,7 +300,14 @@ export async function runPipeline(db: DB, opts: RunOptions): Promise<RunResult> 
         await logEvent(ctx, "error", `Processing failed: ${msg}`, { sourceId: d.sourceId, discoveryId: d.id });
       }
       bump(ctx.stats, outcome);
+      if (outcome === "failed" || outcome === "retry") ctx.partialSources.add(d.sourceId);
     });
+    if (ctx.partialSources.size) {
+      await db
+        .update(sources)
+        .set({ lastCheckStatus: "partial" })
+        .where(and(inArray(sources.id, [...ctx.partialSources]), inArray(sources.lastCheckStatus, ["new_notices", "no_new"])));
+    }
 
     // 4. Lifecycle: close notices whose last date has passed.
     bump(ctx.stats, "closed", await closeExpired(db));

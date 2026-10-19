@@ -87,7 +87,8 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Gujarat Public Service Commission", short: "GPSC", url: "https://gpsc.gujarat.gov.in", category: "commission" },
       { name: "Gujarat Subordinate Service Selection Board", short: "GSSSB", url: "https://gsssb.gujarat.gov.in", category: "board" },
-      { name: "OJAS (Online Job Application System)", short: "OJAS", url: "https://ojas.gujarat.gov.in", category: "portal" },
+      // OJAS is the state government's official recruitment portal, so it is treated as a board, not a general portal.
+      { name: "OJAS (Online Job Application System)", short: "OJAS", url: "https://ojas.gujarat.gov.in", category: "board" },
     ],
   },
   {

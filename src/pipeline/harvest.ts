@@ -96,6 +96,8 @@ export function htmlToText(html: string): string {
 export function documentLinks(html: string, baseUrl: string): { url: string; text: string }[] {
   const $ = cheerio.load(html);
   const out: { url: string; text: string }[] = [];
+  // Site-wide menus link generic PDFs ("Exam Schedule", "FAQ") on every page.
+  $("nav, header, footer, [role=navigation], .navbar, .menu, .dropdown-menu").remove();
   $("a[href]").each((_, el) => {
     try {
       const u = new URL($(el).attr("href")!, baseUrl);

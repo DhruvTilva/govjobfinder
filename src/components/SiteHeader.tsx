@@ -9,6 +9,7 @@ import { SavedLink } from "./SavedLink";
 import { MobileMenu } from "./MobileMenu";
 
 const NAV: { href: string; key: MessageKey }[] = [
+  { href: "/", key: "common.home" },
   { href: "/jobs", key: "nav.jobs" },
   { href: "/jobs?status=closing&sort=closing", key: "nav.closing" },
   { href: "/admit-cards", key: "nav.admit" },

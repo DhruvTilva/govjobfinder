@@ -54,6 +54,18 @@ describe("classify", () => {
     expect(classify("Assistant Engineer Recruitment 2026 – Eligible & Rejected Candidates List").kind).toBe("result");
     expect(classify("TENTATIVE PROGRAMME FOR THE MONTH OF NOVEMBER 2025 for the post of INSPECTOR OF HOUSING").kind).toBe("exam_date");
   });
+  it("keeps state-commission process notices out of recruitments (JKPSC, PSSSB, DSSSB, TPSC, TNPSC; 2026-10-19)", () => {
+    expect(classify("Deficiency of documents for the post of Assistant Architect").kind).toBe("other");
+    expect(classify("Rejection of candidature of Mr. X for the post of Lecturer").kind).toBe("other");
+    expect(classify("Public Notice regarding Rejection of Incomplete Applications for the post of Clerk").kind).toBe("other");
+    expect(classify("Scribe Notice for the post of Group-D (Advt. no. 04 of 2026)").kind).toBe("other");
+    expect(classify("Junior_assistant_ (Revised Distribution of Vacancies)").kind).toBe("other");
+    expect(classify("Recommendation list for recruitment to the post of Programme Assistant").kind).toBe("result");
+    expect(classify("NOTICE : Conducting of Physical Endurance Test (PET) for the post of Forest Guard").kind).toBe("exam_date");
+    // Genuine adverts are unaffected.
+    expect(classify("Filling up of the post of Medical Officer (Allopathic) in Health Department").kind).toBe("recruitment");
+    expect(classify("Advertisement No. 13 of 2026 for the Posts of Head Draftsman, Law Officer").kind).toBe("recruitment");
+  });
   it("falls back to other", () => {
     expect(classify("Annual report 2025-26").kind).toBe("other");
   });
@@ -122,6 +134,39 @@ describe("extractFields", () => {
     expect(ibps.applyEnd).toBe("2026-11-01");
     const drdo = extractFields("Advertisement No DMRL/HRD/JRF/2026/01 Published Date 06-10-2026 Start Date 06-10-2026 End Date 27-10-2026");
     expect(drdo.applyEnd).toBe("2026-10-27");
+  });
+  it("reads date ranges and ignores a closing-date label used as a reference point (IBPS CRP PO/MT-XVI)", () => {
+    const f = extractFields(
+      "IMPORTANT DATES \nActivity Tentative Schedule \nOnline Registration including Edit/Modification\nof Application by candidates\n01-07-2026 to 21-07-2026 \n" +
+        "Payment of Application Fees/Intimation Charges\n(Online)\n01-07-2026 to 21-07-2026 \n" +
+        "Ex-Servicemen … whose assignment is due to be completed within one year from the\nlast date of receipt of application i.e., 20.07.2027) otherwise than by way of dismissal",
+    );
+    expect(f.applyStart).toBe("2026-07-01");
+    expect(f.applyEnd).toBe("2026-07-21");
+    expect(f.applyEndAlternatives).toEqual([]);
+  });
+  it("prefers a revised application deadline over the original and over a fee extension (ISRO IPRC)", () => {
+    const f = extractFields(
+      "The last date of submission of online application is revised to 24.10.2026 (up to 5 pm). " +
+        "The last date of remittance of online application fee is extended up to 29.10.2026 (till 5 pm). " +
+        "Last date for submission of online application is\n05.10.2026 16:00 hrs",
+    );
+    expect(f.applyEnd).toBe("2026-10-24");
+    expect(f.applyEndAlternatives).toEqual([]);
+  });
+  it("reads closing-date labels in Indian languages (Gujarat OJAS, Hindi notices)", () => {
+    expect(extractFields("GSSSB - Staff Nurse (PwD SRD) ( અંતિમ તારીખ 29-October-2026 )").applyEnd).toBe("2026-10-29");
+    expect(extractFields("ऑनलाइन आवेदन की अंतिम तिथि: 15/11/2026").applyEnd).toBe("2026-11-15");
+    // PSSSB Advt. 13/2026 as extracted from the PDF (the ਿ vowel sign comes out before its consonant).
+    expect(extractFields("ਆਨਲਾਈਨ ਅਪਲਾਈ ਕਰਨ ਦੀ ਸ਼ੁਰੂਆਤੀ ਿਮਤੀ : - 01-10-2026 \nਆਖਰੀ ਿਮਤੀ - 22-10-2026").applyEnd).toBe("2026-10-22");
+  });
+  it("ignores printing deadlines and flags genuinely conflicting closing dates", () => {
+    const print = extractFields("Closure of registration of application | 28/10/2026 | Last date for printing your application | 12/11/2026");
+    expect(print.applyEnd).toBe("2026-10-28");
+    expect(print.applyEndAlternatives).toEqual([]);
+    const conflict = extractFields("Last date for receipt of applications: 10.11.2026. … Applications must reach the office on or before 15.12.2026.");
+    expect(conflict.applyEnd).toBe("2026-11-10");
+    expect(conflict.applyEndAlternatives).toEqual(["2026-12-15"]);
   });
 });
 
@@ -202,5 +247,25 @@ describe("titles", () => {
     const html = `<table><tr><td>Induction <a href="/a.pdf">Notifications</a> <a href="/b.pdf">Valid/Rejected List</a> <a href="/c.pdf">Results</a></td></tr></table>`;
     const links = harvestLinks(html, "https://mpsc.mizoram.gov.in/");
     expect(links.every((l) => !/Induction/.test(l.text))).toBe(true);
+  });
+});
+
+describe("pickNoticePdf", async () => {
+  const { pickNoticePdf } = await import("@/pipeline/process");
+  it("prefers the notice's own attachment over site-wide PDFs (GPSC news page)", () => {
+    const links = [
+      { url: "https://gpsc.gujarat.gov.in/Documents/ES-14-10-20261.pdf", text: "Exam Schedule" },
+      { url: "https://gpsc.gujarat.gov.in/Documents/Online-Application.pdf", text: "Online Application" },
+      { url: "https://gpsc.gujarat.gov.in/Documents/AdvertismentDocument/DIP-106-2025-26.pdf", text: "View Attachment" },
+    ];
+    expect(pickNoticePdf(links, "Interview Schedule - 106/2025-26 Detailed Interview Programme (Chief Scientific Officer)")?.url).toContain("DIP-106-2025-26.pdf");
+  });
+  it("follows a lone PDF but refuses to guess among unrelated ones", () => {
+    expect(pickNoticePdf([{ url: "https://x.gov.in/a.pdf", text: "Notice" }], "Anything")?.url).toBe("https://x.gov.in/a.pdf");
+    const unrelated = [
+      { url: "https://x.gov.in/rti.pdf", text: "RTI Act" },
+      { url: "https://x.gov.in/holidays.pdf", text: "Holiday list" },
+    ];
+    expect(pickNoticePdf(unrelated, "Recruitment of Staff Nurse 2026")).toBeNull();
   });
 });

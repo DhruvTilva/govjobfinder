@@ -10,6 +10,7 @@ import { requeueForReprocessing } from "@/pipeline/process";
  *   npm run pipeline -- --source 12,15     # specific sources
  *   npm run pipeline -- --max 20 --budget 10
  *   npm run pipeline -- --reprocess-review # re-extract unedited review/archived items first
+ *   npm run pipeline -- --reprocess-published  # …and unedited published items (after an extraction fix)
  */
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -18,7 +19,9 @@ const arg = (name: string) => {
 
 await runMigrations();
 const db = await getDb();
-if (process.argv.includes("--reprocess-review")) {
+if (process.argv.includes("--reprocess-published")) {
+  console.log(`Re-queued ${await requeueForReprocessing(db, ["needs_review", "archived", "published"])} notice(s) for reprocessing.`);
+} else if (process.argv.includes("--reprocess-review")) {
   console.log(`Re-queued ${await requeueForReprocessing(db, ["needs_review", "archived"])} notice(s) for reprocessing.`);
 }
 const sourceIds = arg("source")?.split(",").map(Number).filter(Boolean);

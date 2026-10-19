@@ -26,7 +26,11 @@ const fmt = (iso: string) => iso.split("-").reverse().join("/"); // dd/mm/yyyy
 
 /** Fake documents keyed by URL. */
 const docs = new Map<string, string>();
+/** Landing pages (HTML) keyed by URL: short text plus the PDFs they link. */
+const pages = new Map<string, { text: string; pdfLinks: { url: string; text: string }[] }>();
 const fetchDoc = async (url: string): Promise<FetchedDocument> => {
+  const page = pages.get(url);
+  if (page) return { url, finalUrl: url, contentType: "html", hash: sha256(page.text), text: page.text, pdfLinks: page.pdfLinks, applyLinks: [] };
   const text = docs.get(url);
   if (text == null) throw new Error("HTTP 404");
   return { url, finalUrl: url, contentType: "pdf", hash: sha256(text), text, pdfLinks: [], applyLinks: [] };
@@ -105,6 +109,20 @@ describe("processDiscovery", () => {
     expect(all).toHaveLength(1);
   });
 
+  it("treats a landing page that leads to an already-stored PDF as a duplicate", async () => {
+    pages.set("https://ssc.gov.in/news?id=77", {
+      text: "Combined Graduate Level Examination 2026 — View Attachment",
+      pdfLinks: [
+        { url: "https://ssc.gov.in/docs/faq.pdf", text: "FAQ" },
+        { url: "https://ssc.gov.in/notices/cgl-2026.pdf", text: "View Attachment" },
+      ],
+    });
+    const { outcome } = await run("https://ssc.gov.in/news?id=77", "Combined Graduate Level Examination 2026 notice page");
+    expect(outcome).toBe("duplicate");
+    const all = await db.select({ id: notices.id }).from(notices).where(eq(notices.advtNo, "HQ-PPII03/1/2026"));
+    expect(all).toHaveLength(1);
+  });
+
   it("applies a deadline extension to the original notice and records the change", async () => {
     const newEnd = addDays(today, 35);
     const { outcome, discovery } = await run(
@@ -133,6 +151,16 @@ describe("processDiscovery", () => {
     expect(n.kind).toBe("admit_card");
     expect(n.parentId).not.toBeNull();
     expect(n.applyEnd).toBeNull();
+  });
+
+  it("treats a title that states its closing date as a recruitment (Gujarat OJAS)", async () => {
+    const d = fmt(addDays(today, 10)).split("/");
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const title = `GSSSB - Staff Nurse (PwD SRD) ( અંતિમ તારીખ ${d[0]}-${months[Number(d[1]) - 1]}-${d[2]} )`;
+    const { outcome, discovery } = await run("https://ssc.gov.in/ojas/staff-nurse.pdf", title, "Gujarat Subordinate Service Selection Board. Staff Nurse. Online application through OJAS. " + "x".repeat(250));
+    expect(outcome).toBe("published");
+    const [n] = await db.select().from(notices).where(eq(notices.id, discovery.noticeId!));
+    expect(n).toMatchObject({ kind: "recruitment", applyEnd: addDays(today, 10) });
   });
 
   it("routes notices without a closing date to review with a reason", async () => {
