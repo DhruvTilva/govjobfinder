@@ -3,9 +3,9 @@ name: Collect notices
 # Scans due sources, processes new links and closes expired notices.
 # Each run is incremental and safe to re-run; overlapping runs are prevented.
 on:
-  schedule:
-    # Every 2 hours at minute 17 (scheduled runs can be delayed by GitHub at busy times).
-    - cron: "17 */2 * * *"
+  # schedule:
+  #   # Every 2 hours at minute 17 (scheduled runs can be delayed by GitHub at busy times).
+  #   - cron: "17 */2 * * *"
   workflow_dispatch:
     inputs:
       reprocess_review:
