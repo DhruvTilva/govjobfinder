@@ -41,7 +41,12 @@ function supabaseConfig() {
 
 export async function saveUpload(db: DB, input: { bytes: Uint8Array; name: string; extractedText?: string | null; userId: number | null }) {
   validatePdf(input.bytes, input.name);
-  const fileName = safeFileName(input.name);
+  return storeBytes(db, { ...input, fileName: safeFileName(input.name), contentType: "application/pdf" });
+}
+
+/** Stores an already-validated file (PDFs via saveUpload, logos re-encoded by src/lib/logos.ts). */
+export async function storeBytes(db: DB, input: { bytes: Uint8Array; fileName: string; contentType: string; extractedText?: string | null; userId: number | null }) {
+  const fileName = input.fileName;
   const sha256 = createHash("sha256").update(input.bytes).digest("hex");
   const sb = supabaseConfig();
   let storageKey: string | null = null;
@@ -49,7 +54,7 @@ export async function saveUpload(db: DB, input: { bytes: Uint8Array; name: strin
     storageKey = `${sha256.slice(0, 2)}/${sha256}/${fileName}`;
     const res = await fetch(`${sb.url}/storage/v1/object/${BUCKET}/${storageKey}`, {
       method: "POST",
-      headers: { authorization: `Bearer ${sb.key}`, "content-type": "application/pdf", "x-upsert": "true" },
+      headers: { authorization: `Bearer ${sb.key}`, "content-type": input.contentType, "x-upsert": "true" },
       body: Buffer.from(input.bytes),
     });
     if (!res.ok) throw new UploadError(`Storage upload failed (HTTP ${res.status}).`);
@@ -58,7 +63,7 @@ export async function saveUpload(db: DB, input: { bytes: Uint8Array; name: strin
     .insert(uploads)
     .values({
       fileName,
-      contentType: "application/pdf",
+      contentType: input.contentType,
       size: input.bytes.byteLength,
       sha256,
       storage: sb ? "supabase" : "database",

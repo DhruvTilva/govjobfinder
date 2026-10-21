@@ -4,8 +4,9 @@ import { getDb } from "@/db/client";
 import { qualifications, sectors, states, type organizations } from "@/db/schema";
 import { listOrganizationsAdmin, referenceOptions } from "@/lib/admin-queries";
 import { ActionForm } from "@/components/admin/ActionForm";
-import { Field, PageTitle } from "@/components/admin/ui";
-import { saveOrganization, saveQualification, saveSector, saveState } from "../../actions";
+import { Field, Notice, PageTitle } from "@/components/admin/ui";
+import { orgLogoAction, saveOrganization, saveQualification, saveSector, saveState, uploadOrgLogo } from "../../actions";
+import { OrgBadge } from "@/components/NoticeCard";
 
 export const metadata = { title: "Reference data" };
 
@@ -26,6 +27,7 @@ export default async function ReferencePage({ searchParams }: { searchParams: Pr
         ))}
       </nav>
       <p className="mb-4 text-sm text-muted">Changes apply immediately to public pages and to how the pipeline classifies new notices.</p>
+      {sp.logo && <Notice tone={/uploaded|hidden|cleared/i.test(sp.logo) ? "ok" : "bad"}>{sp.logo.slice(0, 200)}</Notice>}
       {tab === "organizations" && <Organizations q={sp.q} />}
       {tab === "sectors" && <Sectors />}
       {tab === "qualifications" && <Qualifications />}
@@ -52,15 +54,59 @@ async function Organizations({ q }: { q?: string }) {
       <div className="space-y-2">
         {shown.map(({ o, stateName, sectorName }) => (
           <details key={o.id} className="card p-3">
-            <summary className="cursor-pointer text-sm">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm">
+              <OrgBadge short={o.shortName} name={o.name} logoId={o.logoSource !== "hidden" ? o.logoId : null} size="sm" />
               <strong className="text-ink">{o.name}</strong> {o.shortName && `(${o.shortName})`} <span className="text-muted">· {stateName ?? "Central"} · {sectorName ?? "no sector"} · {o.level}</span>
               {!o.active && <span className="text-danger"> · inactive</span>}
             </summary>
+            <LogoPanel o={o} />
             <OrgForm o={o} opts={opts} />
           </details>
         ))}
       </div>
     </>
+  );
+}
+
+const LOGO_STATUS: Record<string, string> = {
+  auto: "Downloaded automatically from the official website (reviewed).",
+  admin: "Uploaded by an editor — never replaced automatically.",
+  hidden: "Hidden — the initials badge is shown (e.g. the logo is the State Emblem of India, whose use is restricted).",
+};
+
+function LogoPanel({ o }: { o: typeof organizations.$inferSelect }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg border border-line bg-navy-50 p-3 text-sm">
+      <OrgBadge short={o.shortName} name={o.name} logoId={o.logoSource !== "hidden" ? o.logoId : null} size="lg" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-ink">Logo</p>
+        <p className="text-xs text-muted">{o.logoSource ? LOGO_STATUS[o.logoSource] : "No logo found yet — the initials badge is shown."}</p>
+        <form action={uploadOrgLogo} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="id" value={o.id} />
+          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.ico" className="text-xs" aria-label={`Logo for ${o.name}`} />
+          <button className="btn-secondary">Upload logo</button>
+          <span className="text-xs text-muted">PNG, JPEG, WebP, GIF, SVG or ICO, at least 32×32, up to 1 MB.</span>
+        </form>
+      </div>
+      <div className="flex flex-col gap-1">
+        {o.logoSource !== "hidden" && (
+          <form action={orgLogoAction}>
+            <input type="hidden" name="id" value={o.id} />
+            <button name="action" value="hide" className="btn-secondary text-xs">
+              Hide logo
+            </button>
+          </form>
+        )}
+        {(o.logoSource || o.logoId) && (
+          <form action={orgLogoAction}>
+            <input type="hidden" name="id" value={o.id} />
+            <button name="action" value="reset" className="btn-secondary text-xs">
+              Reset (find automatically)
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -19,6 +19,7 @@ import {
   sectors,
   sources,
   states,
+  uploads,
   type FieldSource,
 } from "@/db/schema";
 import { audit, hashPassword, login, logout, requireAdmin } from "@/lib/auth";
@@ -29,6 +30,8 @@ import { validateSourceUrl } from "@/pipeline/validate";
 import { runPipeline } from "@/pipeline/run";
 import { requeueForReprocessing } from "@/pipeline/process";
 import { todayIST } from "@/pipeline/dates";
+import { LogoError, normalizeLogo } from "@/lib/logos";
+import { storeBytes } from "@/lib/storage";
 
 export type ActionState = { ok?: boolean; error?: string; message?: string } | undefined;
 
@@ -567,4 +570,58 @@ export async function toggleUser(fd: FormData) {
     }
   }
   redirect("/bigboss/users");
+}
+
+// ---------- organisation logos ----------
+
+function backToOrg(name: string, message: string): never {
+  redirect(`/bigboss/reference?tab=organizations&q=${encodeURIComponent(name.slice(0, 60))}&logo=${encodeURIComponent(message)}`);
+}
+
+/** Deletes a logo image once no organisation uses it any more. */
+async function dropLogoUpload(db: Awaited<ReturnType<typeof getDb>>, uploadId: number | null) {
+  if (!uploadId) return;
+  const [still] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.logoId, uploadId)).limit(1);
+  if (!still) await db.delete(uploads).where(eq(uploads.id, uploadId));
+}
+
+/** Uploads an editor-chosen logo: validated, re-encoded to a 128×128 WebP, never replaced automatically. */
+export async function uploadOrgLogo(fd: FormData) {
+  const user = await requireAdmin();
+  const id = Number(fd.get("id"));
+  const file = fd.get("logo");
+  const db = await getDb();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+  if (!org) redirect("/bigboss/reference?tab=organizations");
+  if (!(file instanceof File) || file.size === 0) backToOrg(org.name, "Choose an image file first.");
+  let webp: Buffer;
+  try {
+    ({ webp } = await normalizeLogo(new Uint8Array(await file.arrayBuffer())));
+  } catch (e) {
+    backToOrg(org.name, e instanceof LogoError ? e.message : "That file could not be read as an image.");
+  }
+  const saved = await storeBytes(db, { bytes: webp, fileName: `${org.slug}.webp`, contentType: "image/webp", userId: user.id });
+  await db.update(organizations).set({ logoId: saved.id, logoSource: "admin", logoCheckedAt: new Date(), updatedAt: new Date() }).where(eq(organizations.id, id));
+  await dropLogoUpload(db, org.logoId);
+  await audit(user.id, "upload_logo", "organization", String(id), { upload: saved.id });
+  revalidatePath("/", "layout");
+  backToOrg(org.name, "Logo uploaded.");
+}
+
+/** hide: show initials instead (e.g. State Emblem); reset: clear so scripts/fetch-logos.ts tries again. */
+export async function orgLogoAction(fd: FormData) {
+  const user = await requireAdmin();
+  const id = Number(fd.get("id"));
+  const action = String(fd.get("action"));
+  const db = await getDb();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+  if (!org || !["hide", "reset"].includes(action)) redirect("/bigboss/reference?tab=organizations");
+  await db
+    .update(organizations)
+    .set({ logoId: null, logoSource: action === "hide" ? "hidden" : null, logoCheckedAt: null, updatedAt: new Date() })
+    .where(eq(organizations.id, id));
+  await dropLogoUpload(db, org.logoId);
+  await audit(user.id, `logo_${action}`, "organization", String(id));
+  revalidatePath("/", "layout");
+  backToOrg(org.name, action === "hide" ? "Logo hidden; initials are shown instead." : "Logo cleared; the next logo download run will look for one.");
 }

@@ -6,6 +6,7 @@ import { listingMetadata } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/Nav";
 import { Listing } from "@/components/Listing";
 import { SourceList } from "@/components/SourceList";
+import { OrgBadge } from "@/components/NoticeCard";
 import { getI18n } from "@/lib/i18n-server";
 import { sectorName, stateName } from "@/lib/i18n";
 
@@ -36,7 +37,10 @@ export default async function OrgPage({ params, searchParams }: Props) {
           { label: org.shortName ?? org.name },
         ]}
       />
-      <h1 className="mb-1 mt-3 text-3xl font-bold">{org.name}</h1>
+      <div className="mt-3 flex items-center gap-4">
+        {org.logoId && org.logoSource !== "hidden" && <OrgBadge short={org.shortName} name={org.name} logoId={org.logoId} size="lg" />}
+        <h1 className="mb-1 text-3xl font-bold">{org.name}</h1>
+      </div>
       <p className="mb-5 text-sm text-muted">
         {data.sectorSlug && (
           <Link href={`/sectors/${data.sectorSlug}`} className="hover:underline">

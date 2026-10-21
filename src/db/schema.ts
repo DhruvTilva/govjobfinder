@@ -78,6 +78,15 @@ export const organizations = pgTable(
     referenceSource: text("reference_source"),
     notes: text("notes"),
     active: boolean("active").notNull().default(true),
+    /** Logo image (in `uploads`). Shown in listings and on the organisation page. */
+    logoId: integer("logo_id").references((): AnyPgColumn => uploads.id, { onDelete: "set null" }),
+    /**
+     * auto = downloaded from the official website by scripts/fetch-logos.ts; admin = uploaded by an
+     * editor (never replaced automatically); hidden = deliberately not shown (e.g. the State Emblem
+     * of India, whose use is restricted) — the initials badge is shown instead.
+     */
+    logoSource: text("logo_source", { enum: ["auto", "admin", "hidden"] }),
+    logoCheckedAt: ts("logo_checked_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

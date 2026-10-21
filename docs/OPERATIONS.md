@@ -158,6 +158,14 @@ Verified against the project on 2026-10-19:
 * **Uploads.** PDF only (checked by content), max 10 MB, sanitised names. Stored in the `uploads` table (or Supabase Storage, see §2). Served from `/files/<id>/<name>` only while a public notice uses the file; otherwise only to signed-in admins.
 * **Audit.** Every create, edit, status change, delete, upload and settings change is in the audit log; field-level changes are in each notice's history.
 
+## 9b. Organisation logos
+
+* Shown in listings, on notice pages and on organisation pages; organisations without one keep the initials badge.
+* `npx tsx scripts/fetch-logos.ts` downloads the icon each official website declares (or its header logo image), re-encodes it to a 128×128 WebP and stores it in `uploads`. Options: `--force`, `--org a,b`, `--sheet out.png` (contact sheet for review). `.github/workflows/logos.yml` runs it monthly.
+* **Review before trusting new logos.** Many government sites' icons are the State Emblem of India (use restricted by the State Emblem of India (Prohibition of Improper Use) Act, 2005) or not the organisation's logo at all (the flag, web-server default icons, certification badges). Reviewed decisions are in `src/db/seed/logos-hidden.ts`; hidden organisations are never fetched again.
+* Editors manage logos in **Reference data → Organisations**: upload (PNG/JPEG/WebP/GIF/SVG/ICO ≤ 1 MB, re-encoded the same way; never replaced automatically), hide, or reset.
+* Status on 2026-10-22: 93 organisations with a reviewed logo, 77 hidden (49 emblem, 28 wrong icon), 63 with no usable logo found.
+
 ## 10. Source coverage and data-quality tools
 
 | Command | Purpose |

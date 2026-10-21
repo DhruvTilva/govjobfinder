@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { getNotice } from "@/lib/queries";
 import { uploadPath } from "@/lib/storage";
+import { OrgBadge } from "./NoticeCard";
 import { daysLeft, displayStatus, KIND_PATH, noticeHref } from "@/lib/status";
 import { hostnameOf, isOfficialUrl, safeHref } from "@/lib/url";
 import { siteUrl } from "@/lib/site";
@@ -78,8 +79,8 @@ export async function NoticeDetail({ data }: { data: Data }) {
             <h1 className="mt-3 text-2xl leading-tight sm:text-[28px]">{n.title}</h1>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
               {data.orgName && (
-                <Link href={`/organizations/${data.orgSlug}`} className="flex items-center gap-1 hover:text-navy-950 hover:underline">
-                  <BuildingIcon /> {data.orgName}
+                <Link href={`/organizations/${data.orgSlug}`} className="flex items-center gap-1.5 hover:text-navy-950 hover:underline">
+                  {data.orgLogoId ? <OrgBadge short={data.orgShort} name={data.orgName} logoId={data.orgLogoId} size="sm" /> : <BuildingIcon />} {data.orgName}
                 </Link>
               )}
               <span className="flex items-center gap-1">

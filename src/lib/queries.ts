@@ -115,6 +115,8 @@ export const cardFields = {
   orgName: organizations.name,
   orgShort: organizations.shortName,
   orgSlug: organizations.slug,
+  // Only logos marked auto/admin are shown; hidden ones (e.g. the State Emblem) fall back to initials.
+  orgLogoId: sql<number | null>`case when ${organizations.logoSource} in ('auto', 'admin') then ${organizations.logoId} end`,
   stateName: states.name,
   stateSlug: states.slug,
   sectorName: sectors.name,
@@ -125,6 +127,7 @@ export const cardFields = {
 
 export type NoticeCard = {
   id: number;
+  orgLogoId: number | null;
   slug: string;
   kind: NoticeKind;
   status: (typeof notices.$inferSelect)["status"];
@@ -372,6 +375,7 @@ export async function getNotice(slug: string, opts: { includeHidden?: boolean } 
       orgName: organizations.name,
       orgShort: organizations.shortName,
       orgSlug: organizations.slug,
+      orgLogoId: sql<number | null>`case when ${organizations.logoSource} in ('auto', 'admin') then ${organizations.logoId} end`,
       orgWebsite: organizations.website,
       orgDomains: organizations.officialDomains,
       stateName: states.name,

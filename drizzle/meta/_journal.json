@@ -29,6 +29,13 @@
       "when": 1792562404303,
       "tag": "0003_content_manager",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792565745497,
+      "tag": "0004_org_logos",
+      "breakpoints": true
     }
   ]
 }

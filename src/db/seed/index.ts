@@ -5,6 +5,7 @@ import { SECTORS, QUALIFICATIONS } from "./taxonomy";
 import { STATES, type BodyCategory } from "./states";
 import { CENTRAL_ORGS, STATE_SCOPED_CENTRAL_SLUGS } from "./central";
 import { EXAMS } from "./exams";
+import { NATIONAL_EXAMS } from "./exams-national";
 import { LISTING_PAGES } from "./listings";
 import { slugify } from "@/lib/text";
 import { hostnameOf, isGovDomain } from "@/lib/url";
@@ -144,9 +145,11 @@ export async function seedReferenceData(db: DB) {
     }
   }
 
-  // Technical exam directory
-  const orgRows = await db.select({ id: organizations.id, slug: organizations.slug }).from(organizations);
-  for (const e of EXAMS) {
+  // Exam directory: the technical "Top 50" list plus the national list of central and state exams.
+  const orgRows = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name, website: organizations.website }).from(organizations);
+  for (const e of [...EXAMS, ...NATIONAL_EXAMS]) {
+    const org = e.org ? orgRows.find((o) => o.slug === e.org) : undefined;
+    if (e.org && !org) throw new Error(`Exam "${e.name}" refers to unknown organisation "${e.org}"`);
     const r = await db
       .insert(exams)
       .values({
@@ -154,9 +157,9 @@ export async function seedReferenceData(db: DB) {
         name: e.name,
         group: e.group,
         rank: e.rank,
-        organizationId: e.org ? orgRows.find((o) => o.slug === e.org)?.id ?? null : null,
-        recruitingBody: e.body,
-        officialUrl: e.url ?? null,
+        organizationId: org?.id ?? null,
+        recruitingBody: e.body || org?.name || null,
+        officialUrl: e.url ?? org?.website ?? null,
         typicalWindow: e.window,
         focusAreas: e.focus,
         indicativeSalary: e.salary,

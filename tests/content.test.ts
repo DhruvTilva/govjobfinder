@@ -265,3 +265,22 @@ describe("site settings", () => {
     expect(s.announcement).toMatchObject({ active: true, text: "Site maintenance tonight" });
   });
 });
+
+describe("exam directory seed", () => {
+  it("loads the technical list and the national list without slug collisions, each linked to a body and website", async () => {
+    const { EXAMS } = await import("@/db/seed/exams");
+    const { NATIONAL_EXAMS } = await import("@/db/seed/exams-national");
+    const rows = await db.select().from(schema.exams);
+    expect(rows.length).toBe(EXAMS.length + NATIONAL_EXAMS.length);
+    const national = rows.filter((r) => r.rank != null && r.rank > 100);
+    expect(national).toHaveLength(NATIONAL_EXAMS.length);
+    for (const r of national) {
+      expect(r.recruitingBody, r.name).toBeTruthy();
+      // Two bodies have no working official site to link (checked 2026-10-22).
+      const noLink = ["Territorial Army Officer", "WBHRB (West Bengal Health Recruitment Board)"];
+      expect(r.officialUrl ?? (noLink.includes(r.name) ? "none" : null), r.name).toBeTruthy();
+    }
+    const linked = national.filter((r) => r.organizationId != null).length;
+    expect(linked).toBe(NATIONAL_EXAMS.filter((e) => e.org).length);
+  });
+});

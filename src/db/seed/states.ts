@@ -136,7 +136,11 @@ export const STATES: StateSeed[] = [
   {
     code: "KL", slug: "kerala", name: "Kerala", type: "state",
     highlights: "Kerala PSC (nearly all state posts), KSEB, Devaswom Board. Single unified recruiter for the state",
-    bodies: [{ name: "Kerala Public Service Commission", short: "Kerala PSC", url: "https://www.keralapsc.gov.in", category: "commission" }],
+    bodies: [
+      { name: "Kerala Public Service Commission", short: "Kerala PSC", url: "https://www.keralapsc.gov.in", category: "commission" },
+      { name: "High Court of Kerala", short: "Kerala HC", url: "https://hckrecruitment.keralacourts.in/hckrecruitment/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "Kerala Devaswom Recruitment Board", short: "KDRB", url: "https://kdrb.kerala.gov.in/", category: "board", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+    ],
   },
   {
     code: "MP", slug: "madhya-pradesh", name: "Madhya Pradesh", type: "state",
@@ -144,8 +148,6 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Madhya Pradesh Public Service Commission", short: "MPPSC", url: "https://mppsc.mp.gov.in", category: "commission" },
       { name: "Madhya Pradesh Employees Selection Board", short: "MPESB", url: "https://esb.mp.gov.in", category: "board" },
-      { name: "High Court of Kerala", short: "Kerala HC", url: "https://hckrecruitment.keralacourts.in/hckrecruitment/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
-      { name: "Kerala Devaswom Recruitment Board", short: "KDRB", url: "https://kdrb.kerala.gov.in/", category: "board", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
       { name: "Madhya Pradesh High Court", short: "MP HC", url: "https://mphc.gov.in/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
       { name: "National Health Mission, Madhya Pradesh", short: "MP NHM", url: "https://nhmmp.gov.in/Vacancy.aspx", category: "health", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
