@@ -2,7 +2,7 @@ import type { NoticeKind } from "@/db/schema";
 
 /** Default vocabulary a link must contain to be considered a recruitment-related notice. */
 export const DEFAULT_INCLUDE = [
-  "recruit", "advertisement", "advt", "vacanc", "notification", "walk[\\s-]?in", "engagement", "apply online",
+  "recruit", "advertisement", "advt", "vacanc", "notification", "walk[\\s-]?in", "admission", "counsel?ling", "entrance", "engagement", "apply online",
   "online application", "applications? (?:are )?invited", "posts? of", "admit card", "hall ticket", "call letter",
   "result", "merit list", "answer key", "syllabus", "selection list", "selected candidates", "exam(?:ination)? (?:date|schedule)",
   "interview", "cut[\\s-]?off", "apprentice", "contractual", "deputation", "bharti", "भर्ती", "विज्ञापन", "रिक्ति",
@@ -14,13 +14,22 @@ export const DEFAULT_EXCLUDE = [
   "press release", "gallery", "photo", "video", "newsletter", "circular regarding leave", "holiday", "budget",
   "citizen charter", "disposal of", "sale of", "rate contract", "empanelment of (?:vendors|agencies)", "login", "sign ?in",
   "register here", "forgot password", "screen reader", "sitemap", "contact us", "feedback", "privacy policy", "disclaimer",
+  // Corporate/investor notices on PSU and bank sites: "Financial Results" is not an exam result.
+  "financial results?", "voting results?", "(?:un)?audited", "board meeting", "annual general meeting", "\\bagm\\b", "scrutini[sz]er",
+  "investor", "shareholder", "dividend", "newspaper (?:publication|clipping)", "cause list", "pre-?bid", "draw result", "\\blottery\\b",
 ];
 
 const KIND_RULES: [NoticeKind, RegExp][] = [
   ["answer_key", /\b(answer[\s-]?keys?|provisional keys?|final keys?|response sheets?)\b/i],
-  ["admit_card", /\b(admit[\s-]?cards?|hall[\s-]?tickets?|call[\s-]?letters?|e-?admit|exam(?:ination)? city (?:intimation|slip))\b/i],
+  ["admit_card", /\b(admit[\s-]?cards?|hall[\s-]?tickets?|call[\s-]?letters?|e-?admit|exam(?:ination)? city (?:intimation|slip)|city (?:intimation )?slip)\b/i],
   ["result", /\b(results?|recommend(?:ation|ed)[\s-]?(?:lists?|candidates)|merit[\s-]?lists?|select(?:ion|ed)[\s-]?(?:list|candidates)|(?:provisionally|finally) selected|wait(?:ing)?[\s-]?list(?:ed)?|screened[\s-]?in|(?:in)?eligib(?:le|ility)(?: (?:and|&) rejected)?(?: candidates)? lists?|rejected candidates|short[\s-]?listed|marks? (?:obtained|of)|cut[\s-]?off|final selection|scorecards?|qualified candidates|list of (?:eligible|successful|candidates))\b/i],
   ["syllabus", /\b(syllabus|scheme of (?:exam|examination)|exam(?:ination)? pattern)\b/i],
+  // Admissions/entrance/counselling for courses — checked after results, admit cards and keys
+  // ("NEET UG Result" is a result) but before schedules ("NEET counselling schedule").
+  [
+    "admission",
+    /\b(admissions?|entrance (?:exam(?:ination)?|test)|prospectus|(?:ug|pg|mbbs|bds|b\.?\s?ed|d\.?\s?el\.?\s?ed|polytechnic|iti|neet|nursing) (?:admissions?|counsel?ling|entrance)|counsel?ling for (?:admission|ug|pg|mbbs)|neet[\s-]?(?:ug|pg)?|jee[\s-]?(?:main|advanced)?|cuet[\s-]?(?:ug|pg)?|clat|josaa|jeecup|nift|nchm)\b|दाखिला|प्रवेश परीक्षा/i,
+  ],
   ["exam_date", /\b(exam(?:ination)? (?:schedule|dates?|calendar|programme)|(?:date|schedule) of (?:the )?(?:exam|examination|interview|conduct|conducting|cbt|test|skill test|written test|trade test)|interview schedule|skill test|(?:tentative )?programme (?:of|for) (?:the )?(?:exam|examination|interview|month)|tentative programme|time[\s-]?table|postpone(?:d|ment)|re-?schedul|physical (?:endurance|efficiency|standard|measurement) tests?|\bPE[TS]\b|\bPST\b|document verification|counsel?ling|e-?dossiers?)/i],
   // Process notices for applicants of an existing recruitment: useful on the official site,
   // but neither a new vacancy nor one of the follow-up categories we list.

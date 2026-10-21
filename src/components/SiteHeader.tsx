@@ -15,6 +15,7 @@ const NAV: { href: string; key: MessageKey }[] = [
   { href: "/admit-cards", key: "nav.admit" },
   { href: "/results", key: "nav.results" },
   { href: "/answer-keys", key: "nav.keys" },
+  { href: "/admissions", key: "nav.admissions" },
   { href: "/states", key: "nav.states" },
   { href: "/sectors", key: "nav.sectors" },
   { href: "/exams", key: "nav.exams" },

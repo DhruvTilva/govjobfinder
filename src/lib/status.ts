@@ -7,6 +7,7 @@ export const KIND_LABEL: Record<NoticeKind, string> = {
   answer_key: "Answer Key",
   syllabus: "Syllabus",
   exam_date: "Exam Schedule",
+  admission: "Admission",
   other: "Notice",
 };
 
@@ -18,6 +19,7 @@ export const KIND_PATH: Record<NoticeKind, string> = {
   answer_key: "/answer-keys",
   syllabus: "/updates",
   exam_date: "/updates",
+  admission: "/admissions",
   other: "/updates",
 };
 

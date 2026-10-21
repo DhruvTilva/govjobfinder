@@ -38,7 +38,7 @@ Kept but flagged: `gramawardsachivalayam.ap.gov.in` (did not resolve; left for a
 
 ## Link validation (live, from India, 2026-10-15)
 
-`npm run sources:validate` checks every source and stores the result (`sources.url_status`, visible in */admin/sources*).
+`npm run sources:validate` checks every source and stores the result (`sources.url_status`, visible in */bigboss/sources*).
 
 * **First pass (as supplied):** 104 OK, 5 redirect, 39 broken, 11 timeout of 159.
 * Root causes of "broken": missing intermediate TLS certificates (≈15 sites), legacy TLS renegotiation (≈7), DNS failures (wrong hostnames above), WAF/bot protection returning 403 (UPSC, MHA, Supreme Court, MeitY), expired certificates (TGPSC, CISF), timeouts.

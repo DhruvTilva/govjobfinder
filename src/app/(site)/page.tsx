@@ -20,20 +20,9 @@ import { AlertsCard } from "@/components/AlertsCard";
 import { ChevronRight,DocIcon, PinIcon, SearchIcon, ShieldIcon } from "@/components/icons";
 import { JsonLd } from "@/components/JsonLd";
 import { SITE_NAME, siteUrl } from "@/lib/site";
+import { getDb } from "@/db/client";
+import { getSiteSettings } from "@/lib/content";
 
-/** Plain search shortcuts — no counts are claimed. [label en, label hi, query] */
-const POPULAR: [string, string, string][] = [
-  ["SSC", "SSC", "SSC"],
-  ["Railway", "रेलवे", "Railway"],
-  ["Police constable", "पुलिस कांस्टेबल", "Police constable"],
-  ["Teacher", "शिक्षक", "Teacher"],
-  ["Staff nurse", "स्टाफ नर्स", "Staff nurse"],
-  ["Junior engineer", "जूनियर इंजीनियर", "Junior engineer"],
-  ["Bank", "बैंक", "Bank"],
-  ["Apprentice", "अप्रेंटिस", "Apprentice"],
-  ["Clerk", "क्लर्क", "Clerk"],
-  ["Scientist", "वैज्ञानिक", "Scientist"],
-];
 
 /** Feed tabs: each is a real filter on published recruitments. */
 const FEED_TABS: { key: string; label: MessageKey; filters: Filters; more: string }[] = [
@@ -63,7 +52,7 @@ export default async function HomePage({ searchParams }: Props) {
   const sp = await searchParams;
   const tab = FEED_TABS.find((x) => x.key === sp.feed) ?? FEED_TABS[0];
   const today = todayIST();
-  const [boardJobs, admit, results, feed, counts, fresh, opts, stateRows, recruiters, stateNames, recent] = await Promise.all([
+  const [boardJobs, admit, results, feed, counts, fresh, opts, stateRows, recruiters, stateNames, recent, settings] = await Promise.all([
     listNotices({}, "recruitment", 6),
     listNotices({ kind: "admit_card" }, "admit_card", 6),
     listNotices({ kind: "result" }, "result", 6),
@@ -75,6 +64,7 @@ export default async function HomePage({ searchParams }: Props) {
     topRecruiters(7),
     stateRecruiterNames(),
     recentUpdateCounts(),
+    getDb().then(getSiteSettings),
   ]);
 
   const localOpts = {
@@ -169,7 +159,7 @@ export default async function HomePage({ searchParams }: Props) {
 
           <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1 text-sm scrollbar-none">
             <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-muted">{t("home.popular")}</span>
-            {POPULAR.map(([en, hi, q]) => (
+            {settings.popularSearches.map(({ en, hi, q }) => (
               <Link key={q} href={`/jobs?q=${encodeURIComponent(q)}`} className="shrink-0 rounded-full border border-line bg-white px-3 py-1 text-body hover:border-navy-950 hover:bg-navy-950 hover:text-white">
                 {lang === "hi" ? hi : en}
               </Link>

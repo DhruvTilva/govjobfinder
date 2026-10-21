@@ -1,5 +1,5 @@
 import type { sources } from "@/db/schema";
-import { saveSource } from "@/app/admin/actions";
+import { saveSource } from "@/app/bigboss/actions";
 import { ActionForm } from "./ActionForm";
 import { Field } from "./ui";
 

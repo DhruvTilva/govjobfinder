@@ -17,7 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     db.select({ slug: qualifications.slug }).from(qualifications),
   ]);
   const now = new Date();
-  const fixed = ["/", "/jobs", "/admit-cards", "/results", "/answer-keys", "/updates", "/states", "/sectors", "/qualifications", "/exams", "/tools/eligibility", "/about"];
+  const fixed = ["/", "/jobs", "/admit-cards", "/results", "/answer-keys", "/admissions", "/updates", "/states", "/sectors", "/qualifications", "/exams", "/tools/eligibility", "/about"];
   return [
     ...fixed.map((p) => ({ url: siteUrl(p), lastModified: now, changeFrequency: "hourly" as const, priority: p === "/" ? 1 : 0.8 })),
     ...st.map((s) => ({ url: siteUrl(`/states/${s.slug}`), changeFrequency: "daily" as const, priority: 0.7 })),

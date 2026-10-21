@@ -29,6 +29,7 @@ type Row = {
   published: number;
   review: number;
   failed_docs: number;
+  notes: string | null;
   processed: number;
 };
 
@@ -36,7 +37,7 @@ const db = await getDb();
 const res = (await db.execute(sql`
   select s.id, s.name, s.url, o.name as org, st.name as state, s.priority, s.trust, s.method, s.enabled,
          s.last_check_status as check_status, s.url_status, s.last_success_at as last_success, s.last_error,
-         s.consecutive_failures as failures, s.last_check_found as found,
+         s.consecutive_failures as failures, s.last_check_found as found, s.notes,
          (select count(*)::int from discoveries d where d.source_id = s.id) as links,
          (select count(*)::int from notices n where n.source_id = s.id and n.status in ('published','closed')) as published,
          (select count(*)::int from notices n where n.source_id = s.id and n.status = 'needs_review') as review,
@@ -49,21 +50,23 @@ const res = (await db.execute(sql`
 const rows: Row[] = res.rows ?? (res as unknown as Row[]);
 await closeDb();
 
-type Bucket = "working" | "pending" | "review_only" | "no_links" | "failing" | "never" | "reference" | "disabled";
+type Bucket = "working" | "pending" | "review_only" | "no_notices" | "no_links" | "failing" | "never" | "reference" | "disabled";
 function bucket(r: Row): Bucket {
   if (!r.enabled) return "disabled";
   if (r.method === "manual") return "reference";
   if (r.check_status === "never" || (r.check_status === "checking" && !r.last_success)) return "never";
   if (r.check_status === "failed") return "failing";
+  if (r.check_status === "no_links") return "no_links";
   if (r.published > 0) return "working";
   if (r.links > 0 && r.processed === 0) return "pending";
-  if (r.links > 0) return "review_only";
-  return "no_links";
+  if (r.review > 0) return "review_only";
+  return "no_notices";
 }
 const TITLES: Record<Bucket, [string, string]> = {
   working: ["Working", "Listing loads and at least one notice was auto-published."],
   pending: ["Collected, waiting for processing", "Links were found; their documents have not been processed yet (processing continues in later runs)."],
   review_only: ["Partial: collected, not auto-published", "Links are collected but every item so far needed review (source is set to review, or extraction was incomplete)."],
+  no_notices: ["Loads, nothing published yet", "The page loads and links are found, but none has been a publishable notice so far (follow-ups, old or unrelated items)."],
   no_links: ["Partial: loads, no notice links found", "The page loads but no recruitment links matched. Needs a CSS selector, include pattern or a different listing URL."],
   failing: ["Failing", "The most recent check failed (blocked, timed out, TLS or HTTP error). See the error."],
   never: ["Not yet checked", "No check has completed yet."],
@@ -77,7 +80,7 @@ for (const r of rows) {
   groups.set(b, [...(groups.get(b) ?? []), r]);
 }
 const fmtDate = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "never");
-const esc = (s: string | null) => (s ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").slice(0, 110);
+const esc = (s: string | null) => (s ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").slice(0, 240);
 
 const lines: string[] = [];
 lines.push("# Source coverage report", "");
@@ -93,8 +96,11 @@ for (const b of Object.keys(TITLES) as Bucket[]) {
   if (!list?.length) continue;
   lines.push(`## ${TITLES[b][0]} (${list.length})`, "");
   if (b === "failing") {
-    lines.push("| ID | Source | State | P | Fails | Error |", "|---|---|---|---|---|---|");
-    for (const r of list) lines.push(`| ${r.id} | ${esc(r.name)} | ${r.state ?? "Central"} | ${r.priority} | ${r.failures} | ${esc(r.last_error)} |`);
+    lines.push("| ID | Source | State | P | Fails | Error | Notes |", "|---|---|---|---|---|---|---|");
+    for (const r of list) lines.push(`| ${r.id} | ${esc(r.name)} | ${r.state ?? "Central"} | ${r.priority} | ${r.failures} | ${esc(r.last_error)} | ${esc(r.notes)} |`);
+  } else if (b === "no_links" || b === "disabled") {
+    lines.push("| ID | Source | State | P | URL | Notes |", "|---|---|---|---|---|---|");
+    for (const r of list) lines.push(`| ${r.id} | ${esc(r.name)} | ${r.state ?? "Central"} | ${r.priority} | ${esc(r.url)} | ${esc(r.notes)} |`);
   } else {
     lines.push("| ID | Source | State | P | Trust | Links | Published | Review | Last success |", "|---|---|---|---|---|---|---|---|---|");
     for (const r of list) lines.push(`| ${r.id} | ${esc(r.name)} | ${r.state ?? "Central"} | ${r.priority} | ${r.trust} | ${r.links} | ${r.published} | ${r.review} | ${fmtDate(r.last_success)} |`);

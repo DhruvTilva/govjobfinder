@@ -13,6 +13,7 @@ import {
   sectors,
   sources,
   states,
+  uploads,
   type NoticeKind,
 } from "@/db/schema";
 import { addDays, todayIST } from "@/pipeline/dates";
@@ -203,6 +204,7 @@ function buildWhere(f: Filters, defaultKind: NoticeKind | "any"): SQL {
         sql`${notices.search} @@ websearch_to_tsquery('english', ${f.q})`,
         ilike(notices.title, like),
         ilike(notices.advtNo, like),
+        ilike(notices.keywords, like),
         ilike(organizations.name, like),
         ilike(organizations.shortName, like),
       ),
@@ -215,7 +217,8 @@ function orderFor(f: Filters) {
   const recency = desc(sql`coalesce(${notices.publishedAt}, ${notices.firstSeenAt})`);
   if (f.sort === "closing") return [sql`${notices.applyEnd} asc nulls last`, recency];
   if (f.sort === "posts") return [sql`${notices.totalPosts} desc nulls last`, recency];
-  return [recency, desc(notices.id)];
+  // Editors can pin notices to the top of the default (newest first) order.
+  return [desc(notices.pinned), recency, desc(notices.id)];
 }
 
 export async function listNotices(f: Filters, defaultKind: NoticeKind | "any" = "recruitment", pageSize = PAGE_SIZE) {
@@ -378,12 +381,15 @@ export async function getNotice(slug: string, opts: { includeHidden?: boolean } 
       sourceName: sources.name,
       sourceUrl: sources.url,
       sourceLastSuccess: sources.lastSuccessAt,
+      attachmentId: uploads.id,
+      attachmentName: uploads.fileName,
     })
     .from(notices)
     .leftJoin(organizations, eq(notices.organizationId, organizations.id))
     .leftJoin(states, eq(notices.stateId, states.id))
     .leftJoin(sectors, eq(notices.sectorId, sectors.id))
     .leftJoin(sources, eq(notices.sourceId, sources.id))
+    .leftJoin(uploads, eq(notices.attachmentId, uploads.id))
     .where(and(eq(notices.slug, slug), opts.includeHidden ? undefined : inArray(notices.status, [...PUBLIC_STATUSES])));
   if (!row) return null;
   const n = row.n;

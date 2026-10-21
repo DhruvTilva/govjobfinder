@@ -16,7 +16,7 @@ Indian government job notifications collected directly from official recruitment
 - Duplicate control (normalised-URL and document-hash fingerprints, same-advertisement detection), corrigendum / extension / cancellation handling, follow-up linking, automatic closing after the last date, retries with backoff, source health tracking, run logs.
 - Conservative auto-publish rules; everything uncertain goes to a review queue with reasons.
 
-**Admin** (`/admin`)
+**Admin** (`/bigboss`)
 - Overview of real operational stats, review queue with bulk actions, full notice editor with preview and source evidence, source management with *Scan now* / *Check URL*, pipeline runs and failures, reference data editing, users with roles, audit log.
 
 ## Quick start (local)
@@ -25,7 +25,7 @@ Indian government job notifications collected directly from official recruitment
 npm install
 npm run db:seed                                      # local embedded Postgres (PGlite) + reference data
 npm run admin:create -- --email you@example.com      # prompts for a password
-npm run dev                                          # http://localhost:3000, admin at /admin
+npm run dev                                          # http://localhost:3000, admin at /bigboss
 npm run pipeline -- --max 10                         # collect from 10 sources (stop `dev` first when using PGlite)
 ```
 
@@ -41,6 +41,7 @@ npm run pipeline -- --max 10                         # collect from 10 sources (
 | `npm run pipeline` | One collection pass (`--source 12,15`, `--max`, `--budget <min>`, `--reprocess-review`, `--reprocess-published`) |
 | `npm run sources:validate` | Check every source URL and record its status |
 | `npm run admin:create` | Create or reset an admin/editor account |
+| `npx tsx scripts/e2e-content.ts` | Browser end-to-end check of the content manager (creates and deletes notices — use a test database) |
 | `npm run e2e` / `e2e:cleanup` | Browser end-to-end checks (installed Edge/Chrome; publishes one notice with test data — run against a test database, then `e2e:cleanup`) |
 | `npx tsx scripts/qa-report.ts` · `inspect.ts` · `sample-text.ts` · `check-url.ts` | Data-quality tools: review-reason summary, notice dump, text snippets for tuning extractors, one-off URL check |
 | `npx tsx scripts/coverage-report.ts` | Regenerate [SOURCE_COVERAGE.md](SOURCE_COVERAGE.md) from the live database |

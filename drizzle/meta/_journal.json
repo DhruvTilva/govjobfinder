@@ -22,6 +22,13 @@
       "when": 1792406203276,
       "tag": "0002_source_check_status",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792562404303,
+      "tag": "0003_content_manager",
+      "breakpoints": true
     }
   ]
 }
