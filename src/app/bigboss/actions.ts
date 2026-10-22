@@ -32,6 +32,7 @@ import { requeueForReprocessing } from "@/pipeline/process";
 import { todayIST } from "@/pipeline/dates";
 import { LogoError, normalizeLogo } from "@/lib/logos";
 import { storeBytes } from "@/lib/storage";
+import { once } from "@/lib/idempotency";
 
 export type ActionState = { ok?: boolean; error?: string; message?: string } | undefined;
 
@@ -145,6 +146,8 @@ export async function saveNotice(_: ActionState, fd: FormData): Promise<ActionSt
   const db = await getDb();
 
   if (!id) {
+    // A repeated submission of the same form must not create a second notice (the slug is random, so nothing else would stop it).
+    return once<ActionState>(fd, "notice-create", async () => {
     const [created] = await db
       .insert(notices)
       .values({
@@ -160,6 +163,7 @@ export async function saveNotice(_: ActionState, fd: FormData): Promise<ActionSt
     await db.insert(noticeRevisions).values({ noticeId: created.id, changeType: "created", diff: {}, actor: `admin:${user.email}` });
     await audit(user.id, "create", "notice", String(created.id), { title: v.title });
     redirect(`/bigboss/notices/${created.id}?saved=1`);
+    }, () => ({ ok: true, message: "Already submitted — no duplicate notice was created." }), (r) => !!r?.error);
   }
 
   const [existing] = await db.select().from(notices).where(eq(notices.id, id));
@@ -387,8 +391,13 @@ export async function sourceAction(fd: FormData) {
 
 // ---------- pipeline ----------
 
-export async function requestFullRun() {
+export async function requestFullRun(fd?: FormData) {
   const user = await requireAdmin();
+  return once<void>(fd, "pipeline-run", () => runRequest(user.id), () => redirect("/bigboss/pipeline?requested=queued"));
+}
+
+async function runRequest(userId: number) {
+  const user = { id: userId };
   const db = await getDb();
   await db.insert(pipelineRequests).values({ requestedBy: user.id });
   let dispatched = false;

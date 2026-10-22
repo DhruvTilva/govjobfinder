@@ -7,6 +7,8 @@ import { ActionForm } from "@/components/admin/ActionForm";
 import { Field, Notice, PageTitle } from "@/components/admin/ui";
 import { orgLogoAction, saveOrganization, saveQualification, saveSector, saveState, uploadOrgLogo } from "../../actions";
 import { OrgBadge } from "@/components/NoticeCard";
+import { SubmitButton } from "@/components/SubmitButton";
+import Form from "next/form";
 
 export const metadata = { title: "Reference data" };
 
@@ -41,11 +43,11 @@ async function Organizations({ q }: { q?: string }) {
   const shown = q ? rows : rows.slice(0, 40);
   return (
     <>
-      <form className="mb-3 flex gap-2" action="/bigboss/reference">
+      <Form className="mb-3 flex gap-2" action="/bigboss/reference">
         <input type="hidden" name="tab" value="organizations" />
         <input name="q" defaultValue={q} placeholder="Search organisations" className="input max-w-xs" aria-label="Search organisations" />
-        <button className="btn-secondary">Search</button>
-      </form>
+        <SubmitButton className="btn-secondary" pendingLabel="Searching…" label="Search" />
+      </Form>
       <details className="card mb-4 p-4">
         <summary className="cursor-pointer font-semibold text-navy-700">Add organisation</summary>
         <OrgForm opts={opts} />
@@ -84,7 +86,7 @@ function LogoPanel({ o }: { o: typeof organizations.$inferSelect }) {
         <form action={uploadOrgLogo} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="id" value={o.id} />
           <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.ico" className="text-xs" aria-label={`Logo for ${o.name}`} />
-          <button className="btn-secondary">Upload logo</button>
+          <SubmitButton className="btn-secondary" pendingLabel="Uploading document…" label="Upload logo" />
           <span className="text-xs text-muted">PNG, JPEG, WebP, GIF, SVG or ICO, at least 32×32, up to 1 MB.</span>
         </form>
       </div>
@@ -92,17 +94,13 @@ function LogoPanel({ o }: { o: typeof organizations.$inferSelect }) {
         {o.logoSource !== "hidden" && (
           <form action={orgLogoAction}>
             <input type="hidden" name="id" value={o.id} />
-            <button name="action" value="hide" className="btn-secondary text-xs">
-              Hide logo
-            </button>
+            <SubmitButton name="action" value="hide" className="btn-secondary text-xs" pendingLabel="Saving changes…" label="Hide logo" />
           </form>
         )}
         {(o.logoSource || o.logoId) && (
           <form action={orgLogoAction}>
             <input type="hidden" name="id" value={o.id} />
-            <button name="action" value="reset" className="btn-secondary text-xs">
-              Reset (find automatically)
-            </button>
+            <SubmitButton name="action" value="reset" className="btn-secondary text-xs" pendingLabel="Saving changes…" label="Reset (find automatically)" />
           </form>
         )}
       </div>

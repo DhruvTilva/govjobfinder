@@ -3,6 +3,8 @@ import { overviewStats, reviewReasonCounts } from "@/lib/admin-queries";
 import { formatDateTime, timeAgo } from "@/lib/status";
 import { CheckPill, PageTitle, Pill, StatCard, Table } from "@/components/admin/ui";
 import { requestFullRun } from "../actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import { IdemToken } from "@/components/IdemToken";
 
 export const metadata = { title: "Overview" };
 
@@ -17,7 +19,8 @@ export default async function AdminHome() {
     <>
       <PageTitle title="Overview">
         <form action={requestFullRun}>
-          <button className="btn-primary">Run pipeline now</button>
+          <IdemToken />
+          <SubmitButton className="btn-primary" pendingLabel="Starting run…" label="Run pipeline now" />
         </form>
       </PageTitle>
       <p className="mb-4 text-sm text-muted">

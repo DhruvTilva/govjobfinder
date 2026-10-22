@@ -451,6 +451,68 @@ export const auditLog = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Visitor accounts (optional login: Google or Telegram) and their saved jobs
+// ---------------------------------------------------------------------------
+
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email"),
+    googleSub: text("google_sub"),
+    telegramId: text("telegram_id"),
+    telegramUsername: text("telegram_username"),
+    lastLoginAt: ts("last_login_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("users_google_sub_uq").on(t.googleSub), uniqueIndex("users_telegram_id_uq").on(t.telegramId), index("users_email_idx").on(t.email)],
+);
+
+export const userSessions = pgTable(
+  "user_sessions",
+  {
+    /** sha256 of the session token; the raw token only lives in the cookie. */
+    id: text("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: ts("expires_at").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("user_sessions_user_idx").on(t.userId)],
+);
+
+/** One-time Telegram login challenges: the site issues a nonce, the bot replies with a code. */
+export const loginChallenges = pgTable("login_challenges", {
+  /** sha256 of the nonce that travels in the t.me deep link and the browser cookie. */
+  id: text("id").primaryKey(),
+  codeHash: text("code_hash"),
+  telegramId: text("telegram_id"),
+  telegramName: text("telegram_name"),
+  telegramUsername: text("telegram_username"),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: ts("expires_at").notNull(),
+  createdAt: createdAt(),
+});
+
+export const savedJobs = pgTable(
+  "saved_jobs",
+  {
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    applyEnd: text("apply_end"),
+    org: text("org"),
+    savedAt: ts("saved_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.slug] })],
+);
+
+// ---------------------------------------------------------------------------
 // Exam directory (from "Top 50 Exams Technical Sector")
 // ---------------------------------------------------------------------------
 
@@ -471,4 +533,14 @@ export const exams = pgTable("exams", {
   difficulty: text("difficulty"),
   notes: text("notes"),
   active: boolean("active").notNull().default(true),
+});
+
+// ---------------------------------------------------------------------------
+// Duplicate-submit protection
+// ---------------------------------------------------------------------------
+
+/** One row per form submission token that has been claimed; a second claim of the same key is a duplicate. */
+export const idempotencyKeys = pgTable("idempotency_keys", {
+  key: text("key").primaryKey(),
+  createdAt: createdAt(),
 });

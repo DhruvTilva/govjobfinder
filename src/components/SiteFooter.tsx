@@ -1,63 +1,39 @@
 import Link from "next/link";
-import { SITE_NAME } from "@/lib/site";
+import { SITE_NAME, SUPPORT_EMAIL } from "@/lib/site";
 import { getI18n } from "@/lib/i18n-server";
-import { stateName } from "@/lib/i18n";
 
 type FooterLink = [href: string, label: string];
 
 export async function SiteFooter() {
-  const { t, lang } = await getI18n();
-  const st = (slug: string, en: string) => stateName(lang, slug, en);
+  const { t } = await getI18n();
   const cols: { title: string; links: FooterLink[] }[] = [
     {
-      title: t("footer.centralTitle"),
+      title: t("footer.quickTitle"),
       links: [
-        ["/organizations/upsc", "UPSC"],
-        ["/organizations/ssc", "SSC — CGL / CHSL / MTS"],
-        ["/sectors/railways", lang === "hi" ? "रेलवे (RRB / RRC)" : "Railways (RRB / RRC)"],
-        ["/organizations/ibps", "IBPS — PO / Clerk / SO"],
-        ["/organizations/sbi", "SBI"],
-        ["/organizations/rbi", "RBI"],
+        ["/jobs", t("nav.jobs")],
+        ["/jobs?status=closing&sort=closing", t("nav.closing")],
+        ["/admit-cards", t("nav.admit")],
+        ["/results", t("nav.results")],
+        ["/answer-keys", t("nav.keys")],
       ],
     },
     {
-      title: t("footer.stateTitle"),
+      title: t("footer.exploreTitle"),
       links: [
-        ["/states/uttar-pradesh", `${st("uttar-pradesh", "Uttar Pradesh")} — UPPSC`],
-        ["/states/bihar", `${st("bihar", "Bihar")} — BPSC`],
-        ["/states/madhya-pradesh", `${st("madhya-pradesh", "Madhya Pradesh")} — MPPSC`],
-        ["/states/rajasthan", `${st("rajasthan", "Rajasthan")} — RPSC`],
-        ["/states/maharashtra", `${st("maharashtra", "Maharashtra")} — MPSC`],
-        ["/states", t("footer.allStates")],
+        ["/states", t("nav.states")],
+        ["/sectors", t("nav.sectors")],
+        ["/exams", t("nav.exams")],
       ],
     },
     {
-      title: t("footer.defenceTitle"),
+      title: t("footer.infoTitle"),
       links: [
-        ["/organizations/indian-army", lang === "hi" ? "भारतीय सेना / अग्निवीर" : "Indian Army / Agniveer"],
-        ["/organizations/indian-navy", lang === "hi" ? "भारतीय नौसेना" : "Indian Navy"],
-        ["/organizations/indian-air-force", lang === "hi" ? "भारतीय वायु सेना" : "Indian Air Force"],
-        ["/organizations/indian-coast-guard", lang === "hi" ? "भारतीय तटरक्षक" : "Indian Coast Guard"],
-        ["/sectors/police-paramilitary", t("footer.capf")],
-      ],
-    },
-    {
-      title: t("footer.utilitiesTitle"),
-      links: [
-        ["/tools/eligibility", t("footer.age")],
-        ["/qualifications", t("footer.byQual")],
-        ["/saved", t("home.tool.saved")],
-        ["/exams", t("footer.exams")],
-      ],
-    },
-    {
-      title: t("footer.siteTitle"),
-      links: [
-        ["/about", t("footer.how")],
-        ["/about#faq", t("footer.faq")],
-        ["/sectors", t("footer.allSectors")],
-        ["/updates", t("footer.schedules")],
-        ["/sitemap.xml", t("footer.sitemap")],
+        ["/about", t("footer.aboutUs")],
+        ["/faq", t("footer.faq")],
+        ["/user-guide", t("footer.guide")],
+        ["/privacy-policy", t("footer.privacy")],
+        ["/terms-of-use", t("footer.terms")],
+        ["/disclaimer", t("footer.disclaimer")],
       ],
     },
   ];
@@ -65,7 +41,7 @@ export async function SiteFooter() {
   return (
     <footer className="mt-12 border-t-2 border-brand bg-footer pb-6 pt-8 text-xs text-slate-300">
       <div className="container-page space-y-8">
-        <div className="grid grid-cols-2 gap-6 border-b border-slate-800 pb-6 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-6 border-b border-slate-800 pb-6 md:grid-cols-3 lg:grid-cols-5">
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 text-white">
               <span className="text-sm font-bold">{SITE_NAME}</span>
@@ -75,19 +51,18 @@ export async function SiteFooter() {
           {cols.map((c) => (
             <FooterCol key={c.title} title={c.title} links={c.links} />
           ))}
+          <div className="col-span-2 md:col-span-1">
+            <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-white">{t("footer.helpTitle")}</h2>
+            <p className="leading-relaxed text-slate-400">{t("footer.supportText")}</p>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-2 inline-block break-all font-medium text-slate-200 underline underline-offset-2 transition-colors hover:text-white">
+              {SUPPORT_EMAIL}
+            </a>
+          </div>
         </div>
-        <div className="flex flex-col items-start justify-between gap-4 text-[11px] text-slate-400 md:flex-row md:items-center">
-          <div>
-            <p className="font-medium text-slate-300">
-              © {new Date().getFullYear()} {SITE_NAME}. {t("footer.copyright")}
-            </p>
-            <p className="mt-0.5 text-slate-500">{t("footer.trademark")}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-4">
-            <Link href="/about" className="hover:text-white">
-              {t("footer.how")}
-            </Link>
-          </div>
+        <div className="text-[11px] text-slate-400">
+          <p className="font-medium text-slate-300">
+            © {new Date().getFullYear()} {SITE_NAME}. {t("footer.copyright")}
+          </p>
         </div>
       </div>
     </footer>

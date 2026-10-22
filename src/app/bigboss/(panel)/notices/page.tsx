@@ -5,6 +5,8 @@ import { NOTICE_KINDS, NOTICE_STATUSES } from "@/db/schema";
 import { formatDate, KIND_LABEL, timeAgo } from "@/lib/status";
 import { Notice, PageTitle, Pill, Table } from "@/components/admin/ui";
 import { bulkNoticeAction } from "../../actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import Form from "next/form";
 
 export const metadata = { title: "Notices" };
 
@@ -34,7 +36,7 @@ export default async function NoticesPage({ searchParams }: Props) {
         </Link>
       </PageTitle>
       {sp.reprocessed && <Notice tone="ok">Notice removed and its link re-queued. It will be processed on the next pipeline run.</Notice>}
-      <form className="card mb-4 grid gap-2 p-3 sm:grid-cols-5" action="/bigboss/notices">
+      <Form className="card mb-4 grid gap-2 p-3 sm:grid-cols-5" action="/bigboss/notices">
         <input name="q" defaultValue={f.q} placeholder="Title, advt no, organisation" className="input sm:col-span-2" aria-label="Search" />
         <select name="status" defaultValue={f.status ?? ""} className="input" aria-label="Status">
           <option value="">Any status</option>
@@ -53,8 +55,8 @@ export default async function NoticesPage({ searchParams }: Props) {
           ))}
         </select>
         {f.reason && <input type="hidden" name="reason" value={f.reason} />}
-        <button className="btn-secondary">Filter</button>
-      </form>
+        <SubmitButton className="btn-secondary" pendingLabel="Searching…" label="Filter" />
+      </Form>
       {f.reason && (
         <p className="mb-3 text-sm">
           Showing reason: <strong>{f.reason}</strong> ·{" "}
@@ -67,18 +69,10 @@ export default async function NoticesPage({ searchParams }: Props) {
         <input type="hidden" name="back" value={qs({})} />
         <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted">{total.toLocaleString("en-IN")} notices · with selected:</span>
-          <button name="action" value="publish" className="btn-secondary py-1.5">
-            Approve &amp; publish
-          </button>
-          <button name="action" value="reject" className="btn-secondary py-1.5">
-            Reject
-          </button>
-          <button name="action" value="archive" className="btn-secondary py-1.5">
-            Archive
-          </button>
-          <button name="action" value="unpublish" className="btn-secondary py-1.5">
-            Move to review
-          </button>
+          <SubmitButton name="action" value="publish" className="btn-secondary py-1.5" pendingLabel="Publishing notice…" label="Approve &amp; publish" />
+          <SubmitButton name="action" value="reject" className="btn-secondary py-1.5" pendingLabel="Rejecting…" label="Reject" />
+          <SubmitButton name="action" value="archive" className="btn-secondary py-1.5" pendingLabel="Archiving…" label="Archive" />
+          <SubmitButton name="action" value="unpublish" className="btn-secondary py-1.5" pendingLabel="Unpublishing…" label="Move to review" />
         </div>
         <Table head={["", "Notice", "Kind", "Status", "Last date", "Found", "Review reasons"]}>
           {rows.map((r) => (

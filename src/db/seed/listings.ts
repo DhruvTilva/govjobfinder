@@ -28,6 +28,19 @@ export const LISTING_PAGES: Record<string, { url: string; domains?: string[] }> 
   "https://www.cisfrectt.cisf.gov.in": { url: "https://cisfrectt.cisf.gov.in/" }, // 4
   // The regional RRBs moved to rrb.indianrailways.gov.in; the old host no longer answers.
   "https://www.rrbahmedabad.gov.in": { url: "https://rrb.indianrailways.gov.in/ahmedabad", domains: ["rrb.indianrailways.gov.in"] },
+  // Source repair, checked 2026-10-22 from India with the pipeline's own fetch and harvest code.
+  // andaman.gov.in no longer resolves; the administration publishes at andamannicobar.gov.in.
+  "https://andaman.gov.in": { url: "https://andamannicobar.gov.in", domains: ["andamannicobar.gov.in"] }, // 40
+  // The home page lists nothing; the notice board does.
+  "https://bssc.bihar.gov.in": { url: "https://bssc.bihar.gov.in/NoticeBoard.htm" }, // 40
+  "https://mahapolice.gov.in": { url: "https://www.mahapolice.gov.in/police-recruitment.php", domains: ["www.mahapolice.gov.in"] }, // 40
+  // NPSC's own domain resets connections; its notices are on npsc.nagaland.gov.in.
+  "https://npsc.co.in": { url: "https://npsc.nagaland.gov.in", domains: ["npsc.nagaland.gov.in"] }, // 7
+  // Portal home pages replaced by their recruitment listings.
+  "https://www.goa.gov.in": { url: "https://www.goa.gov.in/citizen/recruitment/" }, // 40
+  "https://py.gov.in": { url: "https://py.gov.in/recruitment" }, // 28
+  "https://dnh.gov.in": { url: "https://dnh.gov.in/notice_category/job/" }, // 1
+  "https://lakshadweep.gov.in": { url: "https://lakshadweep.gov.in/notice_category/recruitment/" }, // 1
   // Notice PDFs are hosted on this CloudFront distribution, linked from the BSF page.
   "https://rectt.bsf.gov.in": { url: "https://rectt.bsf.gov.in", domains: ["d3t79nicn48uzj.cloudfront.net"] }, // 6
 };

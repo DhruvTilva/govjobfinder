@@ -36,6 +36,20 @@
       "when": 1792565745497,
       "tag": "0004_org_logos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792659461926,
+      "tag": "0005_user_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792663664315,
+      "tag": "0006_idempotency_keys",
+      "breakpoints": true
     }
   ]
 }

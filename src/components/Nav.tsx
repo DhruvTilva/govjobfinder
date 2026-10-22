@@ -3,6 +3,7 @@ import { ChevronRight } from "./icons";
 import { siteUrl } from "@/lib/site";
 import { JsonLd } from "./JsonLd";
 import { getI18n } from "@/lib/i18n-server";
+import { LinkPending } from "./Loader";
 
 export async function Breadcrumbs({ items }: { items: { href?: string; label: string }[] }) {
   const { t } = await getI18n();
@@ -47,6 +48,7 @@ export async function Pagination({ page, pageCount, hrefFor }: { page: number; p
       {page > 1 && (
         <Link href={hrefFor(page - 1)} className="btn-secondary" rel="prev">
           {t("common.previous")}
+          <LinkPending label={t("loading.page")} />
         </Link>
       )}
       {pages.map((p, i) => (
@@ -58,12 +60,14 @@ export async function Pagination({ page, pageCount, hrefFor }: { page: number; p
             className={`min-w-9 rounded-lg px-3 py-2 text-center font-semibold ${p === page ? "bg-navy-950 text-white" : "border border-line bg-white hover:bg-navy-50"}`}
           >
             {p}
+            <LinkPending label={t("loading.page")} />
           </Link>
         </span>
       ))}
       {page < pageCount && (
         <Link href={hrefFor(page + 1)} className="btn-secondary" rel="next">
           {t("common.next")}
+          <LinkPending label={t("loading.page")} />
         </Link>
       )}
     </nav>

@@ -126,3 +126,41 @@
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
 
+
+/*
+ * The one GovJobFinder loader: a notice being scanned. Every loading state in the site and the
+ * admin panel renders this (see components/Loader.tsx); only its placement and label change.
+ * It fades in after a short delay so fast operations never flash it, and it stops moving for
+ * visitors who prefer reduced motion.
+ */
+@keyframes gjf-scan {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(10px);
+  }
+}
+@keyframes gjf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.gjf-loader {
+  animation: gjf-fade-in 0.2s ease-out 0.12s both;
+}
+.gjf-loader__scan {
+  animation: gjf-scan 0.9s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gjf-loader {
+    animation: none;
+  }
+  .gjf-loader__scan {
+    animation: none;
+    transform: translateY(5px);
+  }
+}

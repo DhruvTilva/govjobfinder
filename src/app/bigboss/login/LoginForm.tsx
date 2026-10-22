@@ -2,6 +2,7 @@
 
 import { loginAction } from "../actions";
 import { useKeepValuesAction } from "@/components/admin/ActionForm";
+import { PendingButton } from "@/components/SubmitButton";
 
 export function LoginForm() {
   const { state, formAction, pending, onSubmit } = useKeepValuesAction(loginAction);
@@ -24,9 +25,7 @@ export function LoginForm() {
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="btn-primary w-full">
-        {pending ? "Signing in…" : "Sign in"}
-      </button>
+      <PendingButton pending={pending} label="Sign in" pendingLabel="Signing in…" className="btn-primary w-full" />
     </form>
   );
 }

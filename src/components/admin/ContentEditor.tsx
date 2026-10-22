@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useActionState, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import type { ImportantDate, NoticeKind } from "@/db/schema";
 import { saveContent, type ContentState } from "@/app/bigboss/content-actions";
 import type { Suggestions } from "@/lib/content-suggest";
+import { Loader } from "@/components/Loader";
+import { PendingButton } from "@/components/SubmitButton";
+import { useSubmitLock } from "@/lib/use-submit-lock";
+import { useIdemToken } from "./use-idem-token";
 
 type Opt = { id: number; name: string; short?: string | null };
 export type EditorNotice = {
@@ -34,6 +38,13 @@ const SUGGESTION_LABELS: Record<string, string> = {
 export function ContentEditor({ n, defaultKind, sections, opts, qualIds = [], attachment }: Props) {
   const [state, formAction, pending] = useActionState<ContentState, FormData>(saveContent, undefined);
   const formRef = useRef<HTMLFormElement>(null);
+  const lock = useSubmitLock(pending);
+  const { field: idemField, renew: renewIdem } = useIdemToken();
+  const [activeIntent, setActiveIntent] = useState<"draft" | "publish">("draft");
+  useEffect(() => {
+    if (state) renewIdem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
   const [kind, setKind] = useState<NoticeKind>(n?.kind ?? defaultKind);
   const [dates, setDates] = useState<{ label: string; date: string }[]>(
     (n?.importantDates ?? []).filter((d) => d.date).map((d) => ({ label: d.label, date: d.date ?? "" })),
@@ -54,6 +65,8 @@ export function ContentEditor({ n, defaultKind, sections, opts, qualIds = [], at
     e.preventDefault();
     if (!formRef.current) return;
     if (!formRef.current.reportValidity()) return;
+    if (!lock.tryLock()) return;
+    setActiveIntent(intent);
     const fd = new FormData(formRef.current);
     fd.set("intent", intent);
     startTransition(() => formAction(fd));
@@ -124,6 +137,7 @@ export function ContentEditor({ n, defaultKind, sections, opts, qualIds = [], at
 
   return (
     <form ref={formRef} action={formAction} className="space-y-5">
+      {idemField}
       {n && <input type="hidden" name="id" value={n.id} />}
       {n && <input type="hidden" name="loadedUpdatedAt" value={n.updatedAt.getTime()} />}
       <input type="hidden" name="attachmentId" value={file?.id ?? ""} />
@@ -151,7 +165,7 @@ export function ContentEditor({ n, defaultKind, sections, opts, qualIds = [], at
         <h2 className="mb-1 text-lg font-bold">2. Official PDF (optional)</h2>
         <p className="mb-3 text-sm text-muted">Upload the official notification to attach it to the public page and to pre-fill fields from its text. PDF only, up to 10 MB.</p>
         <input type="file" accept="application/pdf,.pdf" onChange={onUpload} disabled={upload?.busy} className="block text-sm" aria-label="Upload PDF" />
-        {upload?.busy && <p className="mt-2 text-sm text-muted">Uploading and reading the PDF…</p>}
+        {upload?.busy && <Loader placement="inline" label="Uploading document…" className="mt-2 text-sm text-muted" />}
         {upload?.error && (
           <p role="alert" className="mt-2 text-sm font-semibold text-danger">
             {upload.error}
@@ -302,13 +316,23 @@ export function ContentEditor({ n, defaultKind, sections, opts, qualIds = [], at
       )}
 
       <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-3 border-t border-line bg-surface/95 px-1 py-3 backdrop-blur">
-        <button type="submit" onClick={submit("draft")} disabled={pending} className="btn-secondary">
-          {pending ? "Working…" : n ? (n.status === "published" ? "Save changes" : "Save") : "Save as draft"}
-        </button>
+        <PendingButton
+          pending={pending && activeIntent === "draft"}
+          disabled={pending}
+          onClick={submit("draft")}
+          label={n ? (n.status === "published" ? "Save changes" : "Save") : "Save as draft"}
+          pendingLabel="Saving changes…"
+          className="btn-secondary"
+        />
         {n?.status !== "published" && (
-          <button type="submit" onClick={submit("publish")} disabled={pending} className="btn-primary">
-            {n ? "Save & publish" : "Publish now"}
-          </button>
+          <PendingButton
+            pending={pending && activeIntent === "publish"}
+            disabled={pending}
+            onClick={submit("publish")}
+            label={n ? "Save & publish" : "Publish now"}
+            pendingLabel="Publishing notice…"
+            className="btn-primary"
+          />
         )}
         {state?.error && (
           <p role="alert" className="text-sm font-semibold text-danger">

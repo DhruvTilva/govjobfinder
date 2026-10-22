@@ -4,6 +4,7 @@ import { formatDateTime } from "@/lib/status";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { Field, PageTitle, Table } from "@/components/admin/ui";
 import { createUser, toggleUser } from "../../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const metadata = { title: "Users" };
 
@@ -26,7 +27,7 @@ export default async function UsersPage() {
               {isAdmin && u.id !== me?.id && (
                 <form action={toggleUser}>
                   <input type="hidden" name="id" value={u.id} />
-                  <button className="text-xs font-semibold text-navy-700 underline">{u.active ? "Deactivate" : "Activate"}</button>
+                  <SubmitButton className="text-xs font-semibold text-navy-700 underline" pendingLabel="Saving changes…">{u.active ? "Deactivate" : "Activate"}</SubmitButton>
                 </form>
               )}
             </td>

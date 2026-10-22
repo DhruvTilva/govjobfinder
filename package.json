@@ -13,6 +13,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "admin:create": "tsx scripts/create-admin.ts",
+    "telegram:webhook": "tsx scripts/telegram-webhook.ts",
     "sources:validate": "tsx scripts/validate-sources.ts",
     "pipeline": "tsx scripts/pipeline.ts",
     "e2e": "tsx scripts/e2e.ts",

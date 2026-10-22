@@ -9,6 +9,7 @@ import { exams, NOTICE_KINDS, organizations } from "@/db/schema";
 import { audit, requireAdmin } from "@/lib/auth";
 import { safeHref } from "@/lib/url";
 import { slugify } from "@/lib/text";
+import { once } from "@/lib/idempotency";
 import {
   CONTENT_ACTIONS,
   createContent,
@@ -140,6 +141,8 @@ export async function saveContent(_: ContentState, fd: FormData): Promise<Conten
   const db = await getDb();
 
   if (!noticeId) {
+    // A repeated submission of the same form must not create a second notice.
+    return once<ContentState>(fd, "content-create", async () => {
     const res = await createContent(db, user, p.input, { publish: intent === "publish", allowDuplicate: fd.get("allowDuplicate") === "on" });
     if ("duplicates" in res) {
       return { error: "This looks like a notice that already exists. Open it below, or tick “Create anyway” if it is a different notification.", duplicates: res.duplicates };
@@ -147,6 +150,7 @@ export async function saveContent(_: ContentState, fd: FormData): Promise<Conten
     await audit(user.id, intent === "publish" ? "create_publish" : "create_draft", "notice", String(res.id), { title: p.input.title, kind: p.input.kind });
     if (intent === "publish") revalidatePublic();
     redirect(`/bigboss/content/${res.id}?saved=${intent}`);
+    }, () => ({ ok: true, message: "Already submitted — no duplicate notice was created." }), (r) => !!r?.error);
   }
 
   const loaded = Number(fd.get("loadedUpdatedAt"));
@@ -187,10 +191,17 @@ export async function deleteContentAction(fd: FormData) {
 export async function duplicateContentAction(fd: FormData) {
   const user = await requireAdmin();
   const noticeId = Number(fd.get("id"));
-  const copy = noticeId ? await duplicateContent(await getDb(), user, noticeId) : null;
-  if (!copy) redirect("/bigboss/content");
-  await audit(user.id, "duplicate", "notice", String(copy), { from: noticeId });
-  redirect(`/bigboss/content/${copy}?saved=duplicate`);
+  await once<void>(
+    fd,
+    `content-duplicate:${noticeId}`,
+    async () => {
+      const copy = noticeId ? await duplicateContent(await getDb(), user, noticeId) : null;
+      if (!copy) redirect("/bigboss/content");
+      await audit(user.id, "duplicate", "notice", String(copy), { from: noticeId });
+      redirect(`/bigboss/content/${copy}?saved=duplicate`);
+    },
+    () => redirect(`/bigboss/content/${noticeId}`),
+  );
 }
 
 export async function bulkContentAction(fd: FormData) {

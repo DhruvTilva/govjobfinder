@@ -4,6 +4,8 @@ import { listSources } from "@/lib/admin-queries";
 import { hostnameOf } from "@/lib/url";
 import { timeAgo } from "@/lib/status";
 import { CHECK_LABEL, CheckPill, PageTitle, Pill, Table } from "@/components/admin/ui";
+import { SubmitButton } from "@/components/SubmitButton";
+import Form from "next/form";
 
 export const metadata = { title: "Sources" };
 
@@ -26,7 +28,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Prom
           Add source
         </Link>
       </PageTitle>
-      <form className="card mb-4 flex flex-wrap gap-2 p-3" action="/bigboss/sources">
+      <Form className="card mb-4 flex flex-wrap gap-2 p-3" action="/bigboss/sources">
         <input name="q" defaultValue={f.q} placeholder="Name, URL or organisation" className="input max-w-xs" aria-label="Search" />
         <select name="health" defaultValue={f.health ?? ""} className="input max-w-[200px]" aria-label="Health">
           <option value="">All sources</option>
@@ -44,9 +46,9 @@ export default async function SourcesPage({ searchParams }: { searchParams: Prom
             </option>
           ))}
         </select>
-        <button className="btn-secondary">Filter</button>
+        <SubmitButton className="btn-secondary" pendingLabel="Searching…" label="Filter" />
         <span className="ml-auto self-center text-sm text-muted">{total} sources</span>
-      </form>
+      </Form>
       <Table head={["Source", "Organisation / state", "P", "Trust", "URL", "Last check", "Last success", "Fails", "Published"]}>
         {rows.map(({ s, orgName, stateName, published }) => (
           <tr key={s.id} className={s.enabled ? "" : "opacity-60"}>

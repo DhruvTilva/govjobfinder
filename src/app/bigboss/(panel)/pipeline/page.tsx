@@ -3,6 +3,8 @@ import { failedDiscoveries, listRuns } from "@/lib/admin-queries";
 import { formatDateTime, timeAgo } from "@/lib/status";
 import { Notice, PageTitle, Pill, Table } from "@/components/admin/ui";
 import { reprocessReviewQueue, requestFullRun, retryDiscoveries } from "../../actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import { IdemToken } from "@/components/IdemToken";
 
 export const metadata = { title: "Pipeline" };
 
@@ -14,12 +16,11 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
     <>
       <PageTitle title="Pipeline">
         <form action={reprocessReviewQueue}>
-          <button className="btn-secondary" title="Re-extract unedited auto-collected items in review/archived with the current rules">
-            Re-run extraction on review queue
-          </button>
+          <SubmitButton className="btn-secondary" title="Re-extract unedited auto-collected items in review/archived with the current rules" pendingLabel="Reprocessing…" label="Re-run extraction on review queue" />
         </form>
         <form action={requestFullRun}>
-          <button className="btn-primary">Run full pipeline</button>
+          <IdemToken />
+          <SubmitButton className="btn-primary" pendingLabel="Starting run…" label="Run full pipeline" />
         </form>
       </PageTitle>
       {sp.reprocessed && <Notice tone="ok">{sp.reprocessed} item(s) re-queued; they will be processed on the next run.</Notice>}
@@ -67,7 +68,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
         <h2 className="text-lg font-bold">Failed items waiting for retry ({failed.length})</h2>
         {failed.length > 0 && (
           <form action={retryDiscoveries}>
-            <button className="btn-secondary">Retry all on next run</button>
+            <SubmitButton className="btn-secondary" pendingLabel="Queuing retry…" label="Retry all on next run" />
           </form>
         )}
       </div>
@@ -82,7 +83,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
             <td className="px-3 py-2">
               <form action={retryDiscoveries}>
                 <input type="hidden" name="id" value={d.id} />
-                <button className="text-xs font-semibold text-navy-700 underline">Retry</button>
+                <SubmitButton className="text-xs font-semibold text-navy-700 underline" pendingLabel="Queuing retry…" label="Retry" />
               </form>
             </td>
           </tr>

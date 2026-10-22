@@ -8,6 +8,8 @@ import { formatDateTime, KIND_LABEL, noticeHref } from "@/lib/status";
 import { ContentEditor, type EditorNotice } from "@/components/admin/ContentEditor";
 import { Notice, PageTitle, Pill } from "@/components/admin/ui";
 import { contentStatusAction, deleteContentAction, duplicateContentAction } from "../../../content-actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import { IdemToken } from "@/components/IdemToken";
 
 export const metadata = { title: "Edit content" };
 
@@ -41,8 +43,9 @@ export default async function EditContentPage({ params, searchParams }: Props) {
           </Link>
         )}
         <form action={duplicateContentAction}>
+          <IdemToken />
           <input type="hidden" name="id" value={n.id} />
-          <button className="btn-secondary">Duplicate</button>
+          <SubmitButton className="btn-secondary" pendingLabel="Duplicating…" label="Duplicate" />
         </form>
         <Link href="/bigboss/content" className="btn-secondary">
           Back to list
@@ -81,31 +84,27 @@ export default async function EditContentPage({ params, searchParams }: Props) {
           {n.status !== "published" && (
             <form action={contentStatusAction}>
               <input type="hidden" name="id" value={n.id} />
-              <button name="action" value="publish" className="btn-primary">
-                Publish
-              </button>
+              <SubmitButton name="action" value="publish" className="btn-primary" pendingLabel="Publishing notice…" label="Publish" />
             </form>
           )}
           {n.status === "published" && (
             <form action={contentStatusAction}>
               <input type="hidden" name="id" value={n.id} />
-              <button name="action" value="unpublish" className="btn-secondary">
+              <SubmitButton name="action" value="unpublish" className="btn-secondary" pendingLabel="Unpublishing…">
                 Unpublish ({manual ? "back to draft" : "back to review"})
-              </button>
+              </SubmitButton>
             </form>
           )}
           {n.status !== "archived" && (
             <form action={contentStatusAction}>
               <input type="hidden" name="id" value={n.id} />
-              <button name="action" value="archive" className="btn-secondary">
-                Archive
-              </button>
+              <SubmitButton name="action" value="archive" className="btn-secondary" pendingLabel="Archiving…" label="Archive" />
             </form>
           )}
           <form action={deleteContentAction} className="flex items-center gap-2">
             <input type="hidden" name="id" value={n.id} />
             <input name="confirm" placeholder="Type DELETE" className="input w-32" aria-label="Type DELETE to confirm deletion" autoComplete="off" />
-            <button className="btn-secondary text-danger">Delete permanently</button>
+            <SubmitButton className="btn-secondary text-danger" pendingLabel="Deleting…" label="Delete permanently" />
           </form>
         </div>
       </div>

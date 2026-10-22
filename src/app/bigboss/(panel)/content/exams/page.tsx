@@ -3,6 +3,7 @@ import { listExamsAdmin, referenceOptions } from "@/lib/admin-queries";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { Notice, PageTitle } from "@/components/admin/ui";
 import { deleteExamAction, saveExamAction } from "../../../content-actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const metadata = { title: "Exam directory" };
 
@@ -92,7 +93,7 @@ export default async function ExamsAdminPage({ searchParams }: Props) {
             <label className="flex items-center gap-1">
               <input type="checkbox" name="confirm" className="h-4 w-4" /> Yes, delete this exam
             </label>
-            <button className="btn-secondary text-danger">Delete</button>
+            <SubmitButton className="btn-secondary text-danger" pendingLabel="Deleting…" label="Delete" />
             <Link href="/bigboss/content/exams" className="text-navy-700 underline">
               Cancel editing
             </Link>

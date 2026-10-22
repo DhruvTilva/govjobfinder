@@ -6,6 +6,7 @@ import { readSaved, writeSaved, type SavedItem } from "./SaveButton";
 import { noticeHref } from "@/lib/status";
 import { formatDateL } from "@/lib/i18n";
 import { useLang, useT } from "./LangProvider";
+import { Loader } from "./Loader";
 import type { NoticeKind } from "@/db/schema";
 
 export function SavedList() {
@@ -19,7 +20,7 @@ export function SavedList() {
     return () => window.removeEventListener("gjf:saved", sync);
   }, []);
 
-  if (items === null) return <p className="text-sm text-muted">{t("saved.loading")}</p>;
+  if (items === null) return <Loader placement="section" label={t("saved.loading")} />;
   if (!items.length)
     return (
       <div className="card p-8 text-center text-muted">

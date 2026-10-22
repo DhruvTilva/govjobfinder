@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Form from "next/form";
+import { Suspense } from "react";
 import { filtersToSearch, getFilterOptions, listNotices, type Filters } from "@/lib/queries";
 import type { NoticeKind } from "@/db/schema";
 import { todayIST } from "@/pipeline/dates";
@@ -6,6 +8,8 @@ import { getI18n } from "@/lib/i18n-server";
 import { qualName, sectorName, stateName, type MessageKey } from "@/lib/i18n";
 import { NoticeGrid } from "./NoticeCard";
 import { Pagination } from "./Nav";
+import { Loader } from "./Loader";
+import { SubmitButton } from "./SubmitButton";
 
 type Fixed = Partial<Pick<Filters, "state" | "sector" | "org" | "qual">>;
 
@@ -58,8 +62,7 @@ export async function Listing({
 }) {
   const { t, lang } = await getI18n();
   const f: Filters = { ...filters, ...fixed };
-  const [{ items, total, page, pageCount }, opts] = await Promise.all([listNotices(kinds ? { ...f, kinds } : { ...f, kind }, kind), getFilterOptions()]);
-  const today = todayIST();
+  const opts = await getFilterOptions();
   const editable = { ...filters };
   for (const k of Object.keys(fixed) as (keyof Fixed)[]) delete editable[k];
   const hrefFor = (p: number) => basePath + filtersToSearch(editable, { page: p });
@@ -73,7 +76,7 @@ export async function Listing({
           <summary className="cursor-pointer list-none font-semibold text-ink lg:pointer-events-none">
             {t("list.filters")} <span className="text-xs font-normal text-muted lg:hidden">{t("list.tap")}</span>
           </summary>
-          <form action={basePath} className="mt-3 space-y-3">
+          <Form action={basePath} className="mt-3 space-y-3">
             <div>
               <label htmlFor="f-q" className="label">
                 {t("list.keyword")}
@@ -133,49 +136,73 @@ export async function Listing({
             <SimpleSelect id="f-posted" name="posted" label={t("list.posted")} value={f.posted ? String(f.posted) : undefined} options={opt(POSTED_OPTIONS)} />
             {kind === "recruitment" && !kinds && <SimpleSelect id="f-sort" name="sort" label={t("list.sort")} value={f.sort} options={opt(SORT_OPTIONS)} />}
             <div className="flex gap-2 pt-1">
-              <button type="submit" className="btn-primary flex-1">
-                {t("list.apply")}
-              </button>
+              <SubmitButton label={t("list.apply")} pendingLabel={t("loading.filters")} className="btn-primary flex-1" />
               {hasFilters && (
                 <Link href={basePath} className="btn-secondary">
                   {t("list.reset")}
                 </Link>
               )}
             </div>
-          </form>
+          </Form>
         </details>
       </aside>
-      <section aria-live="polite" className="min-w-0">
-        <p className="mb-3 text-sm text-muted">
-          {total === 0 ? t("list.noResults") : t("list.results", { n: total.toLocaleString("en-IN") })}
-          {f.q && (
-            <>
-              {" "}
-              {t("list.for")} <strong className="text-ink">“{f.q}”</strong>
-            </>
-          )}
-          {pageCount > 1 && ` · ${t("list.page", { p: page, c: pageCount })}`}
-        </p>
-        <NoticeGrid
-          items={items}
-          today={today}
-          empty={
-            <>
-              <p className="font-semibold text-ink">{t("list.emptyTitle")}</p>
-              <p className="mt-1 text-sm">
-                {t("list.emptyHint")}{" "}
-                {hasFilters && (
-                  <Link href={basePath} className="text-navy-700 underline">
-                    {t("list.clear")}
-                  </Link>
-                )}
-              </p>
-            </>
-          }
-        />
-        <Pagination page={page} pageCount={pageCount} hrefFor={hrefFor} />
-      </section>
+      <Suspense key={JSON.stringify({ basePath, f, kind, kinds })} fallback={<Loader placement="section" label={t("loading.jobs")} className="min-w-0" />}>
+        <ListingResults f={f} kind={kind} kinds={kinds} basePath={basePath} hrefFor={hrefFor} hasFilters={hasFilters} />
+      </Suspense>
     </div>
+  );
+}
+
+/** The results list. Suspends on its own so changing filters or pages shows the shared loader here while the filter form stays put. */
+async function ListingResults({
+  f,
+  kind,
+  kinds,
+  basePath,
+  hrefFor,
+  hasFilters,
+}: {
+  f: Filters;
+  kind: NoticeKind;
+  kinds?: NoticeKind[];
+  basePath: string;
+  hrefFor: (p: number) => string;
+  hasFilters: boolean;
+}) {
+  const { t } = await getI18n();
+  const { items, total, page, pageCount } = await listNotices(kinds ? { ...f, kinds } : { ...f, kind }, kind);
+  const today = todayIST();
+  return (
+    <section aria-live="polite" className="min-w-0">
+      <p className="mb-3 text-sm text-muted">
+        {total === 0 ? t("list.noResults") : t("list.results", { n: total.toLocaleString("en-IN") })}
+        {f.q && (
+          <>
+            {" "}
+            {t("list.for")} <strong className="text-ink">“{f.q}”</strong>
+          </>
+        )}
+        {pageCount > 1 && ` · ${t("list.page", { p: page, c: pageCount })}`}
+      </p>
+      <NoticeGrid
+        items={items}
+        today={today}
+        empty={
+          <>
+            <p className="font-semibold text-ink">{t("list.emptyTitle")}</p>
+            <p className="mt-1 text-sm">
+              {t("list.emptyHint")}{" "}
+              {hasFilters && (
+                <Link href={basePath} className="text-navy-700 underline">
+                  {t("list.clear")}
+                </Link>
+              )}
+            </p>
+          </>
+        }
+      />
+      <Pagination page={page} pageCount={pageCount} hrefFor={hrefFor} />
+    </section>
   );
 }
 

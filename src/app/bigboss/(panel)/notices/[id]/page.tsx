@@ -7,6 +7,7 @@ import { PUBLIC_STATUSES } from "@/lib/queries";
 import { NoticeEditor } from "@/components/admin/NoticeEditor";
 import { Notice, PageTitle, Pill } from "@/components/admin/ui";
 import { noticeStatusAction, reprocessNotice } from "../../../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const metadata = { title: "Edit notice" };
 
@@ -71,15 +72,13 @@ export default async function EditNoticePage({ params, searchParams }: Props) {
             <form key={a.action} action={noticeStatusAction}>
               <input type="hidden" name="id" value={n.id} />
               <input type="hidden" name="action" value={a.action} />
-              <button className={a.cls ?? "btn-secondary"}>{a.label}</button>
+              <SubmitButton className={a.cls ?? "btn-secondary"} pendingLabel={a.action === "publish" ? "Publishing notice…" : "Saving changes…"}>{a.label}</SubmitButton>
             </form>
           ))}
           {canReprocess && (
             <form action={reprocessNotice}>
               <input type="hidden" name="id" value={n.id} />
-              <button className="btn-secondary" title="Delete this draft and re-run collection on its link with the current rules">
-                Reprocess with current rules
-              </button>
+              <SubmitButton className="btn-secondary" title="Delete this draft and re-run collection on its link with the current rules" pendingLabel="Reprocessing…" label="Reprocess with current rules" />
             </form>
           )}
         </div>

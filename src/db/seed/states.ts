@@ -45,6 +45,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Arunachal Pradesh Public Service Commission", short: "APPSC (Arunachal)", url: "https://appsc.gov.in", category: "commission", note: "Shares the acronym APPSC with Andhra Pradesh; distinct body." },
       { name: "Arunachal Pradesh Government Portal", url: "https://arunachalpradesh.gov.in", category: "portal" },
+      { name: "Arunachal Pradesh Staff Selection Board", short: "APSSB", url: "https://apssb.nic.in", category: "board", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
     ],
   },
   {
@@ -87,6 +88,8 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Goa Public Service Commission", short: "GPSC (Goa)", url: "https://gpsc.goa.gov.in", category: "commission" },
       { name: "Goa Government Portal", url: "https://www.goa.gov.in", category: "portal" },
+      { name: "Goa Staff Selection Commission", short: "GSSC", url: "https://gssc.goa.gov.in", category: "board", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
+      { name: "Goa Directorate of Health Services", short: "Goa DHS", url: "https://dhs.goa.gov.in", category: "health", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
     ],
   },
   {
@@ -112,6 +115,7 @@ export const STATES: StateSeed[] = [
     highlights: "HP Police, JOA (IT), state department posts",
     bodies: [
       { name: "Himachal Pradesh Public Service Commission", short: "HPPSC", url: "https://hppsc.hp.gov.in", category: "commission" },
+      { name: "National Health Mission, Himachal Pradesh", short: "HP NHM", url: "https://nhm.hp.gov.in/job-vacancies", category: "health", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
       { name: "Himachal Pradesh Rajya Chayan Aayog", short: "HPRCA", url: "https://hprca.hp.gov.in", category: "board", note: "Workbook listed hpsssb.hp.gov.in, the site of the dissolved HPSSSB; replaced with HPRCA's own domain (verify with sources:validate)." },
     ],
   },
@@ -148,6 +152,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Madhya Pradesh Public Service Commission", short: "MPPSC", url: "https://mppsc.mp.gov.in", category: "commission" },
       { name: "Madhya Pradesh Employees Selection Board", short: "MPESB", url: "https://esb.mp.gov.in", category: "board" },
+      { name: "Madhya Pradesh Police", url: "https://www.mppolice.gov.in/en", category: "police", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
       { name: "Madhya Pradesh High Court", short: "MP HC", url: "https://mphc.gov.in/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
       { name: "National Health Mission, Madhya Pradesh", short: "MP NHM", url: "https://nhmmp.gov.in/Vacancy.aspx", category: "health", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
@@ -158,6 +163,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Maharashtra Public Service Commission", short: "MPSC", url: "https://mpsc.gov.in", category: "commission" },
       { name: "Maharashtra Police", url: "https://mahapolice.gov.in", category: "police" },
+      { name: "Maharashtra State Electricity Transmission Co. (MAHATRANSCO)", short: "MAHATRANSCO", url: "https://www.mahatransco.in", category: "utility", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
     ],
   },
   {
@@ -190,6 +196,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Nagaland Public Service Commission", short: "NPSC", url: "https://npsc.co.in", category: "commission", note: "Not a .gov.in domain; treated as the organisation's own domain." },
       { name: "Nagaland Government Portal", url: "https://nagaland.gov.in", category: "portal" },
+      { name: "Nagaland Staff Selection Board", short: "NSSB", url: "https://nssb.nagaland.gov.in", category: "board", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
     ],
   },
   {
@@ -200,6 +207,8 @@ export const STATES: StateSeed[] = [
       { name: "Odisha Staff Selection Commission", short: "OSSC", url: "https://ossc.gov.in", category: "board" },
       { name: "Odisha Subordinate Staff Selection Commission", short: "OSSSC", url: "https://osssc.gov.in", category: "board" },
       { name: "Odisha Police", url: "https://odishapolice.gov.in", category: "police" },
+      { name: "Orissa High Court", short: "Orissa HC", url: "https://orissahighcourt.nic.in", category: "court", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
+      { name: "National Health Mission, Odisha", short: "NHM Odisha", url: "https://nhmodisha.gov.in", category: "health", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
       { name: "Board of Secondary Education, Odisha", short: "BSE Odisha", url: "https://bseodisha.ac.in/", category: "education", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
@@ -292,18 +301,25 @@ export const STATES: StateSeed[] = [
       { name: "West Bengal Public Service Commission", short: "WBPSC", url: "https://wbpsc.gov.in", category: "commission" },
       { name: "West Bengal School Service Commission", short: "WBSSC", url: "https://wbssc.gov.in", category: "teaching" },
       { name: "West Bengal Police", url: "https://wbpolice.gov.in", category: "police" },
+      { name: "West Bengal Police Recruitment Board", short: "WB PRB", url: "https://prb.wb.gov.in", category: "police", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
     ],
   },
   // ---- Union Territories ----
   {
     code: "AN", slug: "andaman-nicobar", name: "Andaman & Nicobar Islands", type: "ut", needsLinkCheck: true,
     highlights: "A&N Police, island administration posts. Departmental recruitment pages",
-    bodies: [{ name: "Andaman & Nicobar Administration", url: "https://andaman.gov.in", category: "portal" }],
+    bodies: [
+      { name: "Andaman & Nicobar Administration", url: "https://andaman.gov.in", category: "portal", note: "andaman.gov.in no longer resolves (checked 2026-10-22); the administration now publishes at andamannicobar.gov.in (see LISTING_PAGES)." },
+      { name: "Andaman & Nicobar Public Works Department", short: "APWD", url: "https://apwd.and.nic.in", category: "board", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
+    ],
   },
   {
     code: "CH", slug: "chandigarh", name: "Chandigarh", type: "ut",
     highlights: "Chandigarh Police, municipal posts. Department pages",
-    bodies: [{ name: "Chandigarh Administration", url: "https://chandigarh.gov.in", category: "portal" }],
+    bodies: [
+      { name: "Chandigarh Administration", url: "https://chandigarh.gov.in", category: "portal" },
+      { name: "Chandigarh Education Department", url: "https://chdeducation.gov.in", category: "education", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
+    ],
   },
   {
     code: "DH", slug: "dadra-nagar-haveli-daman-diu", name: "Dadra & Nagar Haveli and Daman & Diu", type: "ut",
@@ -311,6 +327,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "DNH & DD Administration", url: "https://dnh.gov.in", category: "portal" },
       { name: "Daman District Portal", url: "https://daman.nic.in", category: "portal" },
+      { name: "Daman & Diu Administration (Recruitments)", url: "https://ddd.gov.in/notice-category/recruitments/", category: "portal", note: "Added in the source repair of 2026-10-22; listing page checked to load and yield notice links." },
     ],
   },
   {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { logoutAction } from "../actions";
 import { LogoMark } from "@/components/icons";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const NAV: [string, string][] = [
   ["/bigboss", "Overview"],
@@ -38,9 +39,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
             ))}
             <li className="lg:hidden">
               <form action={logoutAction}>
-                <button type="submit" className="block whitespace-nowrap rounded-md px-3 py-2 text-white/85 hover:bg-white/10">
-                  Sign out
-                </button>
+                <SubmitButton className="block whitespace-nowrap rounded-md px-3 py-2 text-white/85 hover:bg-white/10" pendingLabel="Logging out…" label="Sign out" />
               </form>
             </li>
           </ul>
@@ -49,9 +48,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
           <p className="truncate">{user.email}</p>
           <p className="capitalize">{user.role}</p>
           <form action={logoutAction}>
-            <button type="submit" className="mt-2 text-white underline">
-              Sign out
-            </button>
+            <SubmitButton className="mt-2 text-white underline" pendingLabel="Logging out…" label="Sign out" />
           </form>
         </div>
       </aside>

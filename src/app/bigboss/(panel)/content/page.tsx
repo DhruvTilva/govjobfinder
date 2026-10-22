@@ -6,6 +6,8 @@ import { SECTIONS } from "@/lib/content";
 import { formatDate, KIND_LABEL, timeAgo } from "@/lib/status";
 import { Notice, PageTitle, Pill } from "@/components/admin/ui";
 import { bulkContentAction } from "../../content-actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import Form from "next/form";
 
 export const metadata = { title: "Website content" };
 
@@ -76,7 +78,7 @@ export default async function ContentPage({ searchParams }: Props) {
         Closing Soon, State Jobs and Sectors are not separate content: they list published jobs by last date, state and sector, so set those fields on the job.
       </p>
 
-      <form className="card mb-4 grid gap-2 p-3 sm:grid-cols-4 xl:grid-cols-8" action="/bigboss/content">
+      <Form className="card mb-4 grid gap-2 p-3 sm:grid-cols-4 xl:grid-cols-8" action="/bigboss/content">
         <input name="q" defaultValue={f.q} placeholder="Title, advt no, keyword, organisation" className="input sm:col-span-2" aria-label="Search" />
         <select name="kind" defaultValue={f.kind ?? ""} className="input" aria-label="Section">
           <option value="">Any section</option>
@@ -121,29 +123,21 @@ export default async function ContentPage({ searchParams }: Props) {
         <label className="flex items-center gap-1 text-xs text-muted">
           To <input type="date" name="to" defaultValue={f.to} className="input" aria-label="Created to" />
         </label>
-        <button className="btn-secondary">Filter</button>
+        <SubmitButton className="btn-secondary" pendingLabel="Searching…" label="Filter" />
         <Link href="/bigboss/content" className="self-center text-sm text-navy-700 underline">
           Clear
         </Link>
-      </form>
+      </Form>
 
       <form action={bulkContentAction}>
         <input type="hidden" name="back" value={back} />
         <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted">{total.toLocaleString("en-IN")} notices · with selected:</span>
-          <button name="action" value="publish" className="btn-secondary">
-            Publish
-          </button>
-          <button name="action" value="unpublish" className="btn-secondary">
-            Unpublish
-          </button>
-          <button name="action" value="archive" className="btn-secondary">
-            Archive
-          </button>
+          <SubmitButton name="action" value="publish" className="btn-secondary" pendingLabel="Publishing notice…" label="Publish" />
+          <SubmitButton name="action" value="unpublish" className="btn-secondary" pendingLabel="Unpublishing…" label="Unpublish" />
+          <SubmitButton name="action" value="archive" className="btn-secondary" pendingLabel="Archiving…" label="Archive" />
           <input name="confirm" placeholder="Type DELETE" className="input w-32" aria-label="Type DELETE to confirm" autoComplete="off" />
-          <button name="action" value="delete" className="btn-secondary text-danger">
-            Delete
-          </button>
+          <SubmitButton name="action" value="delete" className="btn-secondary text-danger" pendingLabel="Deleting…" label="Delete" />
         </div>
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">

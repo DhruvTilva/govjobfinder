@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Form from "next/form";
+import { SubmitButton } from "@/components/SubmitButton";
 import {
   activeCounts,
   freshness,
@@ -119,7 +121,7 @@ export default async function HomePage({ searchParams }: Props) {
             </dl>
           </div>
 
-          <form action="/jobs" className="mt-6 grid gap-2 rounded-xl bg-navy-50 p-3 sm:grid-cols-12" role="search">
+          <Form action="/jobs" className="mt-6 grid gap-2 rounded-xl bg-navy-50 p-3 sm:grid-cols-12" role="search">
             <div className="relative sm:col-span-4">
               <label htmlFor="h-q" className="sr-only">
                 {t("list.keyword")}
@@ -152,10 +154,10 @@ export default async function HomePage({ searchParams }: Props) {
                 </option>
               ))}
             </HeroSelect>
-            <button type="submit" className="btn-primary py-3 sm:col-span-1">
+            <SubmitButton pendingLabel={t("loading.search")} hideLabel className="btn-primary py-3 sm:col-span-1">
               <span className="sm:sr-only xl:not-sr-only">{t("home.search")}</span>
-            </button>
-          </form>
+            </SubmitButton>
+          </Form>
 
           <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1 text-sm scrollbar-none">
             <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-muted">{t("home.popular")}</span>

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import type { DB } from "@/db/client";
 import { uploads } from "@/db/schema";
 
@@ -48,6 +48,21 @@ export async function saveUpload(db: DB, input: { bytes: Uint8Array; name: strin
 export async function storeBytes(db: DB, input: { bytes: Uint8Array; fileName: string; contentType: string; extractedText?: string | null; userId: number | null }) {
   const fileName = input.fileName;
   const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+  // The same person uploading the same file again within minutes (a double click, a retried request)
+  // gets the file stored the first time instead of a second copy. A deliberate re-upload later is kept.
+  const [recent] = await db
+    .select({ id: uploads.id, fileName: uploads.fileName, size: uploads.size })
+    .from(uploads)
+    .where(
+      and(
+        eq(uploads.sha256, sha256),
+        eq(uploads.fileName, fileName),
+        input.userId == null ? isNull(uploads.uploadedBy) : eq(uploads.uploadedBy, input.userId),
+        gt(uploads.createdAt, new Date(Date.now() - 5 * 60_000)),
+      ),
+    )
+    .limit(1);
+  if (recent) return recent;
   const sb = supabaseConfig();
   let storageKey: string | null = null;
   if (sb) {
