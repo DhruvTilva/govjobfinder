@@ -90,8 +90,8 @@ await step("age calculator computes eligibility", async () => {
 
 console.log("Admin");
 await step("admin requires sign-in", async () => {
-  await page.goto(BASE + "/admin");
-  await page.waitForURL(/\/admin\/login/);
+  await page.goto(BASE + "/bigboss");
+  await page.waitForURL(/\/bigboss\/login/);
 });
 await step("wrong password is rejected", async () => {
   await page.fill("#email", EMAIL);
@@ -103,17 +103,17 @@ await step("wrong password is rejected", async () => {
 await step("sign in shows overview with live stats", async () => {
   await page.fill("#password", PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(BASE + "/admin");
+  await page.waitForURL(BASE + "/bigboss");
   expect(await page.getByText("Active published jobs").isVisible(), "no stats");
   await shot(page, "admin-overview");
 });
 let noticeUrl = "";
 await step("review queue item can be edited", async () => {
-  await page.goto(BASE + "/admin/notices?status=needs_review&kind=recruitment");
-  const link = page.locator("table a[href^='/admin/notices/']").first();
+  await page.goto(BASE + "/bigboss/notices?status=needs_review&kind=recruitment");
+  const link = page.locator("table a[href^='/bigboss/notices/']").first();
   expect(await link.count(), "review queue is empty");
   await link.click();
-  await page.waitForURL(/\/admin\/notices\/\d+/);
+  await page.waitForURL(/\/bigboss\/notices\/\d+/);
   noticeUrl = page.url();
   await page.fill("#f-applyEnd", addDays(todayIST(), 21));
   await page.fill("#f-feeText", "No fee (edited in end-to-end test)");
@@ -140,7 +140,7 @@ await step("change history records the edit", async () => {
   expect(await page.getByText(/feeText:/).isVisible(), "no feeText revision");
 });
 await step("unsafe source URLs are refused", async () => {
-  await page.goto(BASE + "/admin/sources/new");
+  await page.goto(BASE + "/bigboss/sources/new");
   await page.fill("#s-name", "Loopback test");
   await page.fill("#s-url", "http://127.0.0.1/admin");
   await page.getByRole("button", { name: "Add source" }).click();
@@ -148,30 +148,30 @@ await step("unsafe source URLs are refused", async () => {
   expect(/not allowed/i.test(await page.locator("form [role=alert]").innerText()), "loopback URL accepted");
 });
 await step("source page shows health and can validate its URL", async () => {
-  await page.goto(BASE + "/admin/sources?q=ssc.gov.in");
-  await page.locator("table a[href^='/admin/sources/']").first().click();
-  await page.waitForURL(/\/admin\/sources\/\d+/);
+  await page.goto(BASE + "/bigboss/sources?q=ssc.gov.in");
+  await page.locator("table a[href^='/bigboss/sources/']").first().click();
+  await page.waitForURL(/\/bigboss\/sources\/\d+/);
   await page.getByRole("button", { name: "Check URL" }).click();
   await page.getByText(/URL check:/).waitFor({ timeout: 45_000 });
 });
 await step("pipeline, reference data, audit and users pages load", async () => {
-  for (const p of ["/admin/pipeline", "/admin/reference?tab=sectors", "/admin/audit", "/admin/users"]) {
+  for (const p of ["/bigboss/pipeline", "/bigboss/reference?tab=sectors", "/bigboss/audit", "/bigboss/users"]) {
     const res = await page.goto(BASE + p);
     expect(res?.status() === 200, `${p} → ${res?.status()}`);
   }
   expect(await page.getByText("qa-admin").first().isVisible().catch(() => true), "users list");
 });
 await step("audit log contains login and publish actions", async () => {
-  await page.goto(BASE + "/admin/audit");
+  await page.goto(BASE + "/bigboss/audit");
   expect(await page.getByText("login failed").first().isVisible(), "failed login not audited");
   expect(await page.getByRole("cell", { name: "publish", exact: true }).first().isVisible(), "publish not audited");
 });
 await step("sign out ends the session", async () => {
-  await page.goto(BASE + "/admin");
+  await page.goto(BASE + "/bigboss");
   await page.getByRole("button", { name: "Sign out" }).first().click();
-  await page.waitForURL(/\/admin\/login/);
-  await page.goto(BASE + "/admin/notices");
-  await page.waitForURL(/\/admin\/login/);
+  await page.waitForURL(/\/bigboss\/login/);
+  await page.goto(BASE + "/bigboss/notices");
+  await page.waitForURL(/\/bigboss\/login/);
 });
 await step("no uncaught browser errors", async () => {
   expect(errors.length === 0, errors.join(" | "));

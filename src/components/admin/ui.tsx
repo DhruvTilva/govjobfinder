@@ -41,6 +41,7 @@ export function StatCard({ label, value, href, tone }: { label: string; value: s
 const STATUS_CLS: Record<string, string> = {
   published: "bg-ok-soft text-ok",
   needs_review: "bg-urgent-soft text-urgent",
+  draft: "bg-navy-100 text-navy-900",
   rejected: "bg-danger-soft text-danger",
   cancelled: "bg-danger-soft text-danger",
   withdrawn: "bg-danger-soft text-danger",
@@ -63,6 +64,7 @@ const STATUS_CLS: Record<string, string> = {
   checking: "bg-navy-100 text-navy-900",
   new_notices: "bg-ok-soft text-ok",
   no_new: "bg-ok-soft text-ok",
+  no_links: "bg-urgent-soft text-urgent",
   disabled: "bg-slate-200 text-slate-700",
 };
 
@@ -72,6 +74,7 @@ export const CHECK_LABEL: Record<string, string> = {
   checking: "checking now",
   new_notices: "ok, new notices",
   no_new: "ok, nothing new",
+  no_links: "loaded, no links found",
   partial: "partial",
   failed: "failed",
   disabled: "disabled",

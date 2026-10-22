@@ -79,18 +79,40 @@ export function assertFetchableUrl(raw: string): URL {
   return u;
 }
 
+/**
+ * Government hosts often publish several A records of which one is dead (accepts TCP, then
+ * stalls the TLS handshake or never answers). Node's address fallback only covers the TCP
+ * connect, so failures are tracked here: the address a host was last connected through is
+ * remembered, and after a connect-phase failure it is moved to the back for 30 minutes.
+ */
+const lastAddress = new Map<string, string>();
+const badUntil = new Map<string, number>();
+const BAD_ADDRESS_MS = 30 * 60_000;
+
+export function markLastAddressBad(hostname: string) {
+  const ip = lastAddress.get(hostname);
+  if (ip) badUntil.set(ip, Date.now() + BAD_ADDRESS_MS);
+}
+
+const isBad = (ip: string) => (badUntil.get(ip) ?? 0) > Date.now();
+
 const safeLookup: typeof dns.lookup = ((hostname: string, options: dns.LookupOptions, callback: (...a: unknown[]) => void) => {
   dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
     if (err) return callback(err);
-    const list = addresses as dns.LookupAddress[];
-    const bad = list.find((a) => !isPublicIp(a.address));
-    if (bad || list.length === 0) {
+    const resolved = addresses as dns.LookupAddress[];
+    const bad = resolved.find((a) => !isPublicIp(a.address));
+    if (bad || resolved.length === 0) {
       return callback(new FetchError(`Resolved to a non-public address: ${hostname}`, "blocked"));
     }
+    const list = [...resolved.filter((a) => !isBad(a.address)), ...resolved.filter((a) => isBad(a.address))];
+    lastAddress.set(hostname, list[0].address);
     if (options.all) return callback(null, list);
     callback(null, list[0].address, list[0].family);
   });
 }) as typeof dns.lookup;
+
+/** Failures before any response arrived (GETs only, so safe to repeat): worth one retry against another address. */
+const CONNECT_PHASE = /UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|UND_ERR_SOCKET/;
 
 // Many government servers still need legacy renegotiation. This flag only
 // restores protocol compatibility; certificate verification stays on.
@@ -104,11 +126,14 @@ function makeAgent() {
   return new Agent({
     connect: {
       lookup: safeLookup,
-      timeout: 15_000,
+      timeout: 12_000,
+      // Try every resolved address in turn when one does not accept the TCP connection.
+      autoSelectFamily: true,
+      autoSelectFamilyAttemptTimeout: 2_500,
       secureOptions: SECURE_OPTIONS,
       ...(extraIntermediates.size ? { ca: [...tls.rootCertificates, ...extraIntermediates.values()] } : {}),
     },
-    headersTimeout: 25_000,
+    headersTimeout: 15_000,
     bodyTimeout: 30_000,
     connections: 4,
   });
@@ -118,6 +143,33 @@ let agent = makeAgent();
 function caIssuerUris(infoAccess: string | undefined): string[] {
   if (!infoAccess) return [];
   return [...infoAccess.matchAll(/CA Issuers - URI:(\S+)/g)].map((m) => m[1]);
+}
+
+/**
+ * AIA "CA Issuers" files are either a single certificate (DER/PEM .crt/.cer) or a PKCS#7
+ * bundle (.p7c, used by eMudhra/emSign). Node cannot read PKCS#7, so for bundles each
+ * embedded DER SEQUENCE is tried as a certificate; only real certificates parse.
+ */
+export function certificatesFrom(body: Uint8Array): X509Certificate[] {
+  const buf = Buffer.from(body);
+  try {
+    return [new X509Certificate(buf)];
+  } catch {
+    /* not a single certificate */
+  }
+  const out: X509Certificate[] = [];
+  for (let i = 1; i < buf.length - 4; i++) {
+    if (buf[i] !== 0x30 || buf[i + 1] !== 0x82) continue;
+    const len = buf.readUInt16BE(i + 2) + 4;
+    if (len < 300 || i + len > buf.length) continue;
+    try {
+      out.push(new X509Certificate(buf.subarray(i, i + len)));
+      i += len - 1;
+    } catch {
+      /* an inner structure, not a certificate */
+    }
+  }
+  return out;
 }
 
 function issuedByRoot(cert: X509Certificate): boolean {
@@ -134,35 +186,41 @@ function issuedByRoot(cert: X509Certificate): boolean {
 const aiaAttempted = new Set<string>();
 async function completeChain(host: string): Promise<boolean> {
   if (aiaAttempted.has(host)) return false;
-  aiaAttempted.add(host);
-  const leaf = await new Promise<X509Certificate>((resolve, reject) => {
-    const socket = tls.connect(
-      { host, port: 443, servername: host, rejectUnauthorized: false, secureOptions: SECURE_OPTIONS, lookup: safeLookup as never },
-      () => {
-        const raw = socket.getPeerCertificate(false)?.raw;
-        socket.end();
-        if (!raw) return reject(new Error("no certificate"));
-        resolve(new X509Certificate(raw));
-      },
-    );
-    socket.setTimeout(15_000, () => socket.destroy(new Error("timeout")));
-    socket.on("error", reject);
-  }).catch(() => null);
+  const readLeaf = () =>
+    new Promise<X509Certificate>((resolve, reject) => {
+      const socket = tls.connect(
+        { host, port: 443, servername: host, rejectUnauthorized: false, secureOptions: SECURE_OPTIONS, lookup: safeLookup as never },
+        () => {
+          const raw = socket.getPeerCertificate(false)?.raw;
+          socket.end();
+          if (!raw) return reject(new Error("no certificate"));
+          resolve(new X509Certificate(raw));
+        },
+      );
+      socket.setTimeout(10_000, () => socket.destroy(new Error("timeout")));
+      socket.on("error", reject);
+    }).catch(() => {
+      markLastAddressBad(host);
+      return null;
+    });
+  // A failed attempt marks its address bad, so the second one goes to the host's other server.
+  const leaf = (await readLeaf()) ?? (await readLeaf());
   if (!leaf) return false;
+  aiaAttempted.add(host);
 
   let current = leaf;
   let added = false;
   for (let depth = 0; depth < 3; depth++) {
     const uri = caIssuerUris(current.infoAccess)[0];
     if (!uri) break;
-    let issuer: X509Certificate;
+    let issuer: X509Certificate | undefined;
     try {
       const res = await safeFetch(uri, { timeoutMs: 15_000, maxBytes: 64 * 1024, accept: "*/*" });
-      issuer = new X509Certificate(Buffer.from(res.body));
+      issuer = certificatesFrom(res.body).find((c) => c.ca && current.checkIssued(c));
     } catch {
       break;
     }
-    if (!issuer.ca || !current.checkIssued(issuer)) break;
+    if (!issuer) break;
     extraIntermediates.set(issuer.fingerprint256, issuer.toString());
     added = true;
     if (issuedByRoot(issuer)) break;
@@ -194,10 +252,12 @@ export type FetchOptions = {
 };
 
 export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<FetchResult> {
-  const timeoutMs = opts.timeoutMs ?? 25_000;
+  // Room for one connect retry (2 × 12 s) plus a slow response.
+  const timeoutMs = opts.timeoutMs ?? 40_000;
   const maxBytes = opts.maxBytes ?? 5 * 1024 * 1024;
   const signal = AbortSignal.timeout(timeoutMs);
   let current = assertFetchableUrl(url);
+  let connectRetries = 1;
 
   for (let hop = 0; hop <= 5; hop++) {
     const headers: Record<string, string> = {
@@ -213,6 +273,13 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
       res = await undiciFetch(current, { method: opts.method ?? "GET", headers, redirect: "manual", signal, dispatcher: agent });
     } catch (e) {
       const fe = classifyError(e);
+      const raw = (e as { cause?: { code?: string } }).cause?.code ?? "";
+      if (connectRetries > 0 && !signal.aborted && CONNECT_PHASE.test(raw)) {
+        markLastAddressBad(current.hostname);
+        connectRetries--;
+        hop--;
+        continue;
+      }
       if (fe.code === "tls" && /UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT/.test(fe.message) && current.protocol === "https:") {
         if (await completeChain(current.hostname)) {
           hop--;
@@ -226,7 +293,11 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
       const loc = res.headers.get("location");
       await res.body?.cancel();
       if (!loc) throw new FetchError(`Redirect without location (${res.status})`, "http", res.status);
-      current = assertFetchableUrl(new URL(loc, current).toString());
+      const next = new URL(loc, current);
+      // Misconfigured servers redirect https → http on the same host (NTPC, POWERGRID) while
+      // port 80 is closed. Stay on https: it already worked for this host and is never weaker.
+      if (current.protocol === "https:" && next.protocol === "http:" && next.hostname === current.hostname) next.protocol = "https:";
+      current = assertFetchableUrl(next.toString());
       continue;
     }
 

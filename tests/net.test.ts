@@ -19,8 +19,9 @@ describe("SSRF guard", () => {
   });
   it("refuses hostnames that resolve to private addresses (checked at connect time)", async () => {
     // localtest.me resolves to 127.0.0.1 via public DNS; skip when DNS is unavailable.
-    await expect(safeFetch("http://localtest.me/", { timeoutMs: 8000 })).rejects.toMatchObject({ code: expect.stringMatching(/blocked|network/) });
-  });
+    // Its lookup alone can take ~4 s on some resolvers, so leave room under parallel test load.
+    await expect(safeFetch("http://localtest.me/", { timeoutMs: 20_000 })).rejects.toMatchObject({ code: expect.stringMatching(/blocked|network/) });
+  }, 30_000);
 });
 
 describe("robots.txt", () => {
@@ -65,5 +66,33 @@ describe("URL helpers", () => {
   });
   it("makes stable slugs", () => {
     expect(slugify("Recruitment of JE (Civil) & AE — 2026!")).toBe("recruitment-of-je-civil-and-ae-2026");
+  });
+});
+
+describe("certificate bundles and failure reporting", async () => {
+  const tls = await import("node:tls");
+  const { X509Certificate } = await import("node:crypto");
+  const { certificatesFrom, FetchError } = await import("@/pipeline/net");
+  const { urlStatusFor, describeFailure } = await import("@/pipeline/run");
+
+  it("reads a single DER certificate and certificates embedded in a PKCS#7 (.p7c) bundle", () => {
+    const der = (pem: string) => new X509Certificate(pem).raw;
+    const [a, b] = [der(tls.rootCertificates[0]), der(tls.rootCertificates[1])];
+    expect(certificatesFrom(a)).toHaveLength(1);
+    // PKCS#7 SignedData wrapper bytes around two certificates, as emSign serves them.
+    const header = Buffer.from([0x30, 0x82, 0x0f, 0x00, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02, 0xa0, 0x82, 0x0e, 0x00]);
+    const found = certificatesFrom(Buffer.concat([header, a, b, Buffer.from([0x31, 0x00])]));
+    expect(found.map((c) => c.fingerprint256)).toEqual([new X509Certificate(a).fingerprint256, new X509Certificate(b).fingerprint256]);
+    expect(certificatesFrom(Buffer.from("not a certificate"))).toEqual([]);
+  });
+
+  it("separates deliberate blocks from breakage and explains the error", () => {
+    expect(urlStatusFor(new FetchError("HTTP 403", "http", 403))).toBe("blocked");
+    expect(urlStatusFor(new FetchError("Disallowed by robots.txt: /", "robots"))).toBe("blocked");
+    expect(urlStatusFor(new FetchError("Timed out", "timeout"))).toBe("timeout");
+    expect(urlStatusFor(new FetchError("HTTP 404", "http", 404))).toBe("broken");
+    expect(describeFailure(new FetchError("HTTP 403", "http", 403))).toBe("http: HTTP 403 (the site refuses automated access)");
+    expect(describeFailure(new FetchError("TLS error: CERT_HAS_EXPIRED", "tls"))).toContain("certificate has expired");
+    expect(describeFailure(new FetchError("Network error: ENOTFOUND", "network"))).toContain("domain does not exist");
   });
 });

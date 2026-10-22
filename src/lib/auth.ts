@@ -101,7 +101,7 @@ export async function currentAdmin(): Promise<AdminUser | null> {
 /** Use in every admin page and server action. Redirects to login when not signed in. */
 export async function requireAdmin(role: "admin" | "editor" = "editor"): Promise<AdminUser> {
   const user = await currentAdmin();
-  if (!user) redirect("/admin/login");
+  if (!user) redirect("/bigboss/login");
   if (role === "admin" && user.role !== "admin") throw new Error("This action requires the admin role.");
   return user;
 }

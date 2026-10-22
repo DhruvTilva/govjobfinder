@@ -54,6 +54,18 @@ describe("classify", () => {
     expect(classify("Assistant Engineer Recruitment 2026 – Eligible & Rejected Candidates List").kind).toBe("result");
     expect(classify("TENTATIVE PROGRAMME FOR THE MONTH OF NOVEMBER 2025 for the post of INSPECTOR OF HOUSING").kind).toBe("exam_date");
   });
+  it("separates admissions and counselling from recruitments, and reads city intimation slips (2026-10-21)", () => {
+    expect(classify("Inviting Online Applications for the National Institute of Fashion Technology (NIFT) Admission 2027").kind).toBe("admission");
+    expect(classify("UP B.Ed Joint Entrance Exam 2027 Notification").kind).toBe("admission");
+    expect(classify("NEET UG 2026 Counselling Schedule").kind).toBe("admission");
+    expect(classify("Bihar Polytechnic DCECE Admission 2026").kind).toBe("admission");
+    expect(classify("NEET UG 2026 Result Declared").kind).toBe("result");
+    expect(classify("JEE Main 2027 Admit Card").kind).toBe("admit_card");
+    expect(classify("SSC CGL 2026 City Intimation Slip").kind).toBe("admit_card");
+    // Recruitment counselling stays a schedule, and job notices stay recruitments.
+    expect(classify("Counselling for the post of Staff Nurse").kind).toBe("exam_date");
+    expect(classify("Recruitment of TGT (B.Ed required) 2026").kind).toBe("recruitment");
+  });
   it("keeps state-commission process notices out of recruitments (JKPSC, PSSSB, DSSSB, TPSC, TNPSC; 2026-10-19)", () => {
     expect(classify("Deficiency of documents for the post of Assistant Architect").kind).toBe("other");
     expect(classify("Rejection of candidature of Mr. X for the post of Lecturer").kind).toBe("other");
@@ -200,6 +212,20 @@ describe("taxonomy detection", () => {
 });
 
 describe("harvestLinks", () => {
+  it("titles generic 'Download Advertisement' links from their notice row or card (NPCIL, BEL; 2026-10-21)", () => {
+    const npcil = `<table><tr><td>08.10.2026</td><td>NPCIL / HQ / HRM / ET / 2026 / 03</td><td>Recruitment of Engineering Graduates in NPCIL Through Gate.</td>
+      <td><a href="/writereaddata/Advt-ET-2026.pdf">Download Advertisement</a></td></tr></table>`;
+    expect(harvestLinks(npcil, "https://www.npcil.nic.in/content/289_1_Opportunities.aspx")[0].text).toContain("Recruitment of Engineering Graduates in NPCIL");
+    const bel = `<div class="career-result-box"><h4>Application for the post of Director (Research and Development)</h4><div class="advertisements"><div class="row"><div class="col-md-4">
+      <div class="attchment-pdf"><div class="pdf-file-info"><a href="/wp-content/uploads/2026/10/Director-RD-Advertisement.pdf">Click here to view the Detailed Advertisement - [pdf, 175.01 KB]</a></div></div></div></div></div></div>`;
+    const [link] = harvestLinks(bel, "https://bel-india.in/job-notifications/");
+    expect(link.text).toContain("Application for the post of Director (Research and Development)");
+    expect(link.text).not.toContain("Click here");
+  });
+  it("does not borrow a block's text when it holds several notices' links", () => {
+    const block = `<div><h4>Recruitment of Officers 2026</h4><a href="/a.pdf">Download Advertisement</a> <a href="/b.pdf">Download Advertisement</a> <a href="/c.pdf">Download Advertisement</a></div>`;
+    for (const l of harvestLinks(block, "https://example.gov.in/")) expect(l.text).toBe("Download Advertisement");
+  });
   const html = `<html><body>
     <nav><a href="/recruitment">Recruitment</a></nav>
     <ul>
@@ -267,5 +293,16 @@ describe("pickNoticePdf", async () => {
       { url: "https://x.gov.in/holidays.pdf", text: "Holiday list" },
     ];
     expect(pickNoticePdf(unrelated, "Recruitment of Staff Nurse 2026")).toBeNull();
+  });
+});
+
+describe("corporate notices on PSU and bank sites", () => {
+  it("are not harvested as notices (IRCON, NALCO, GRSE investor pages; 2026-10-21)", () => {
+    const html = `<ul>
+      <li><a href="/a.pdf">Published Unaudited Financial Results for the quarter ended 30th June 2026</a></li>
+      <li><a href="/b.pdf">110th AGM - Voting Results and Scrutinizers Report 2025-26</a></li>
+      <li><a href="/c.pdf">Notice of Board Meeting to consider results</a></li>
+      <li><a href="/d.pdf">Recruitment of Tradesman Trainees 2026 - Detailed Advertisement</a></li></ul>`;
+    expect(harvestLinks(html, "https://www.example.gov.in/").map((l) => l.text)).toEqual(["Recruitment of Tradesman Trainees 2026 - Detailed Advertisement"]);
   });
 });

@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { SourceConfig } from "@/db/schema";
 import { DEFAULT_EXCLUDE, DEFAULT_INCLUDE, compilePatterns } from "./classify";
 import { clean } from "@/lib/text";
@@ -6,6 +7,37 @@ import { clean } from "@/lib/text";
 export type HarvestedLink = { url: string; text: string; context: string };
 
 const DOC_EXT = /\.(pdf|docx?|xlsx?)$/i;
+
+/**
+ * Link labels that say what to do, not what the notice is ("Download Advertisement",
+ * "Click here to view the detailed advertisement - [pdf, 175 KB]", "View (English)").
+ * A label is generic when nothing is left after removing such words and file details;
+ * for these the row's own text is the better title.
+ */
+const GENERIC_WORDS =
+  /\b(?:click|here|to|the|view|download|read|more|see|open|detailed|details?|advertisement|advt|notification|notice|link|pdf|file|document|attachment|english|hindi|new|apply|online|kb|mb|size)\b|\d+(?:\.\d+)?|[^\p{L}]+/giu;
+
+export function isGenericLinkText(text: string): boolean {
+  return text.replace(GENERIC_WORDS, "").length < 3;
+}
+
+/**
+ * Title for a generic link: the text of the nearest ancestor that adds real text but still
+ * belongs to this one notice (≤ 2 links, ≤ 350 chars): a table row (NPCIL), or a card
+ * several divs up (BEL). The generic label itself is dropped, and climbing continues while
+ * what is left is still generic. (Allowing more links merged neighbouring notices.)
+ */
+function noticeContext($: cheerio.CheerioAPI, a: cheerio.Cheerio<AnyNode>, ownText: string): string | null {
+  let el = a.parent();
+  for (let depth = 0; depth < 7 && el.length && !el.is("body"); depth++, el = el.parent()) {
+    if (el.find("a[href]").length > 2) return null;
+    const text = clean(el.text()) ?? "";
+    if (text.length > 350) return null;
+    const rest = clean(text.replace(ownText, " ")) ?? "";
+    if (rest.length >= 15 && !isGenericLinkText(rest)) return rest;
+  }
+  return null;
+}
 const SKIP_EXT = /\.(jpe?g|png|gif|svg|webp|mp4|mp3|zip|rar|exe|apk|css|js)$/i;
 
 /**
@@ -38,14 +70,14 @@ export function harvestLinks(html: string, baseUrl: string, config: SourceConfig
     url.hash = "";
 
     const ownText = clean(a.text() || a.attr("title") || a.attr("aria-label") || "") ?? "";
-    // Generic anchors ("Click here", "Download", "New") borrow the text of their row/list item.
+    // Generic anchors ("Click here", "Download Advertisement") borrow the text of their row/list item.
     const container = a.closest("tr, li, p, td");
     // A large container is a menu or page section, not the notice's own row.
     // A row with several links ("Notification | Result | Answer key") would glue their labels together.
     const rawContext = clean(container.length ? container.text() : "") ?? "";
     const context = rawContext.length <= 350 && container.find("a[href]").length <= 2 ? rawContext : "";
-    const generic = ownText.length < 12 || /^(click here|download|view|details?|new|read more|apply|link|pdf|here)$/i.test(ownText);
-    const text = (generic && context.length > ownText.length ? context : ownText).slice(0, 400);
+    const generic = ownText.length < 12 || isGenericLinkText(ownText);
+    const text = (generic ? noticeContext($, a, ownText) ?? (context.length > ownText.length ? context : ownText) : ownText).slice(0, 400);
     if (text.length < 8) return;
     // Un-rendered client-side template text ("{{ 'KEY' | translate }}") is not a title.
     if (/\{\{|\}\}|\$\{/.test(text)) return;

@@ -7,7 +7,7 @@ This is the runbook for deploying and running GovJobFinder. It assumes no prior 
 ```
             ┌───────────────────────────────┐
  Visitors ─▶│ Next.js web app (Vercel, bom1)│──┐  reads/writes via
- Admins   ─▶│  public site + /admin         │  │  transaction pooler
+ Admins   ─▶│  public site + /bigboss         │  │  transaction pooler
             └───────────────────────────────┘  ▼
                                          ┌──────────────┐
                                          │  PostgreSQL   │  Supabase (Mumbai)
@@ -40,6 +40,7 @@ This is the runbook for deploying and running GovJobFinder. It assumes no prior 
 | `ANTHROPIC_MODEL` | GitHub variable (optional) | Defaults to `claude-opus-5-5`. Set a different model id for another cost/quality trade-off. |
 | `GITHUB_DISPATCH_TOKEN`, `GITHUB_REPOSITORY` | Web app (optional) | Lets "Run pipeline now" in the admin start the GitHub workflow immediately (fine-grained token with *Actions: write* on this repo only). Without it, requests are queued for the next scheduled run. |
 | `GITHUB_DISPATCH_REF` | Web app (optional) | Branch the workflow is dispatched on (default `master`). |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_UPLOAD_BUCKET` | Web app (optional) | Store uploaded notice PDFs in a private Supabase Storage bucket instead of the database. Server-only. |
 | `COLLECT_RUNNER` | GitHub variable (optional) | Runner label for the collector (see §6, geo-restrictions). |
 
 Never put the database URL or API keys in `NEXT_PUBLIC_*` variables — those are sent to browsers.
@@ -66,15 +67,15 @@ Verified against the project on 2026-10-19:
    DATABASE_URL="<session pooler URL>" npm run admin:create -- --email you@example.com --name "Your Name"
    ```
    `admin:create` prompts for a password (min 12 characters); it is never stored in shell history.
-3. **GitHub**: push the repository. Add secret `WORKER_DATABASE_URL` (session URL), optional `ANTHROPIC_API_KEY`; add variable `CRAWLER_USER_AGENT`. Then run *Actions → Collect notices → Run workflow* once and confirm a run appears in */admin/pipeline*.
+3. **GitHub**: push the repository. Add secret `WORKER_DATABASE_URL` (session URL), optional `ANTHROPIC_API_KEY`; add variable `CRAWLER_USER_AGENT`. Then run *Actions → Collect notices → Run workflow* once and confirm a run appears in */bigboss/pipeline*.
 4. **Vercel**: import the repository. Set `DATABASE_URL` (transaction URL), `DATABASE_POOL_MAX=3`, `NEXT_PUBLIC_SITE_URL`. `vercel.json` pins functions to Mumbai (`bom1`) so database round-trips stay short.
 5. **Domain**: add it in Vercel, then update `NEXT_PUBLIC_SITE_URL` and redeploy. Submit `https://<domain>/sitemap.xml` in Google Search Console.
 6. **Verify the deployment** (don't assume):
    ```bash
    curl -I https://<domain>/            # 200
    curl -I https://<domain>/jobs/nope   # 404
-   curl -I https://<domain>/admin       # 307 → /admin/login
-   curl -s https://<domain>/robots.txt  # disallows /admin
+   curl -I https://<domain>/bigboss       # 307 → /bigboss/login
+   curl -s https://<domain>/robots.txt  # disallows /bigboss
    E2E_BASE_URL=https://<domain> E2E_EMAIL=... E2E_PASSWORD=... npm run e2e   # against a staging database only
    ```
 
@@ -82,31 +83,38 @@ Verified against the project on 2026-10-19:
 
 | Task | Where |
 |---|---|
-| Check health: last run, failing sources, review backlog | `/admin` |
-| Review uncertain notices (reason shown for each) | `/admin/notices?status=needs_review` — open, correct fields, *Approve & publish*; or bulk-publish/reject |
+| Check health: last run, failing sources, review backlog | `/bigboss` |
+| Review uncertain notices (reason shown for each) | `/bigboss/notices?status=needs_review` — open, correct fields, *Approve & publish*; or bulk-publish/reject |
 | Mark cancelled / withdrawn / closed | Notice page → status buttons (history is kept; nothing is deleted) |
-| Add a notice the pipeline can't read | `/admin/notices/new` |
-| Fix a source (new URL, CSS selector, include/exclude patterns, trust) | `/admin/sources/<id>` → edit → *Scan now* to test |
-| Add a new official website | `/admin/sources/new` (starts as "review every notice"; switch to *Trusted* once results look right) |
-| Run everything now / retry failures | `/admin/pipeline` |
-| After improving extraction rules | `/admin/pipeline` → *Re-run extraction on review queue* (only unedited auto items) |
-| Taxonomy (sectors, qualifications, organisations, state notes) | `/admin/reference` |
-| Who changed what | `/admin/audit`; per-notice history on each notice page |
+| Add a notice the pipeline can't read | `/bigboss/content/new` (Website content → Add content) |
+| Publish, edit, pin, unpublish, archive, duplicate or delete any notice | `/bigboss/content` — filters by section, status, state, organisation, manual/collected, date; bulk actions |
+| Upload an official PDF and pre-fill a notice from it | Content editor → “Official PDF”. Extracted values are only suggestions; nothing is published until you save |
+| Announcement banner, homepage popular searches | `/bigboss/content/settings` |
+| Exam directory | `/bigboss/content/exams` |
+| Fix a source (new URL, CSS selector, include/exclude patterns, trust) | `/bigboss/sources/<id>` → edit → *Scan now* to test |
+| Add a new official website | `/bigboss/sources/new` (starts as "review every notice"; switch to *Trusted* once results look right) |
+| Run everything now / retry failures | `/bigboss/pipeline` |
+| After improving extraction rules | `/bigboss/pipeline` → *Re-run extraction on review queue* (only unedited auto items) |
+| Taxonomy (sectors, qualifications, organisations, state notes) | `/bigboss/reference` |
+| Who changed what | `/bigboss/audit`; per-notice history on each notice page |
 
 **Publication rules** (automatic): a notice is published only if its source is *Trusted*, the link is on an official domain (`.gov.in`, `.nic.in` or the organisation's own domain), the document was fetched and readable, the notice type is clear, and (for recruitments) a closing date in the next ~13 months was found. Everything else waits in the review queue with the reason. Old advertisements without a current date are archived, not queued.
 
 ## 5. Scheduling
 
-* Each source records the outcome of its latest check (`last_check_status`): *never checked*, *checking now*, *ok, new notices*, *ok, nothing new*, *partial* (listing loaded but some documents failed), *failed*; disabled sources are shown as disabled. Counts are on `/admin`, filters on `/admin/sources`.
+* Each source records the outcome of its latest check (`last_check_status`): *never checked*, *checking now*, *ok, new notices*, *ok, nothing new*, *partial* (listing loaded but some documents failed), *failed*; disabled sources are shown as disabled. Counts are on `/bigboss`, filters on `/bigboss/sources`.
 * A source left at *checking* by a crashed or cancelled run is set to *failed* ("Check was interrupted") at the start of the next run.
-* `collect.yml` runs every 2 hours (`17 */2 * * *`). Each source has its own interval (priority 1: 2 h, 2: 6 h, 3: 12 h), so a run only scans sources that are due. Failing sources back off exponentially (up to 3 days) and appear in */admin* after 3 consecutive failures.
+* `collect.yml` runs every 2 hours (`17 */2 * * *`). Each source has its own interval (priority 1: 2 h, 2: 6 h, 3: 12 h), so a run only scans sources that are due. Failing sources back off exponentially (up to 3 days) and appear in */bigboss* after 3 consecutive failures.
 * Runs heartbeat every 30 s; a run without a heartbeat for 30 min is marked failed so the next run can proceed.
 * GitHub may delay scheduled runs at busy times and, for repositories without activity for 60 days, may disable scheduled workflows ([GitHub docs](https://docs.github.com/en/enterprise-server@3.20/actions/using-workflows/disabling-and-enabling-a-workflow)). If the admin overview shows "Last successful pipeline run" older than ~6 hours, check *Actions*.
 
 ## 6. Known operational risks
 
 * **Geo-restrictions / bot protection.** In testing from an Indian connection on 2026-10-15, 131 of 159 source URLs loaded (82%); UPSC, MHA and the Supreme Court returned HTTP 403 (bot protection), two sites had expired certificates and about ten timed out. GitHub's hosted runners are outside India, so more sites may refuse them. If source failures jump after moving to GitHub Actions: register a [self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners) on a small VM in India (or an always-on PC) and set repository variable `COLLECT_RUNNER=self-hosted`. We do **not** bypass bot protection; such sources stay as reference links and their notices can be added manually or via Employment News.
-* **TLS problems on government sites** are handled without disabling verification: missing intermediate certificates are fetched via the certificate's AIA URL, and legacy renegotiation is allowed. Expired certificates are reported as failures.
+* **TLS problems on government sites** are handled without disabling verification: missing intermediate certificates are fetched via the certificate's AIA URL (single certificates and PKCS#7 `.p7c` bundles, e.g. emSign), and legacy renegotiation is allowed. Expired certificates are reported as failures.
+* **Hosts with a dead address.** Several state sites publish two A records of which one accepts TCP and then stalls. The fetcher retries a request once after a connect-phase failure (connect/headers timeout, reset, refused) and moves the failed address to the back for 30 minutes, so later requests in the run go straight to the working server.
+* **https → http redirects** on the same host are followed over https (NTPC, POWERGRID redirect to plain http while port 80 is closed).
+* **Source status meanings.** URL status *blocked* = the site refuses us on purpose (HTTP 401/403/429 or robots.txt) or our safety rules refused the address; *broken* = not working (404, 5xx, TLS, DNS); *timeout* = no response. Last check *loaded, no links found* means the page loaded but extraction found no recruitment links — it is not counted as a success. Each failure's error text explains the cause; per-source findings are in the source's Notes and in `docs/SOURCE_COVERAGE.md`.
 * **Regional-language notices** (Kannada, Gujarati, Hindi PDFs, scanned PDFs) are not extracted by the rules and go to review. Enabling `ANTHROPIC_API_KEY` improves field filling for text PDFs; scanned PDFs still need an editor.
 * **robots.txt** is respected for every request. Some sites disallow their PDF folders (e.g. HPSC `/Portals/0/`); those notices enter review with the reason "blocked by the site's robots.txt".
 
@@ -139,6 +147,24 @@ Verified against the project on 2026-10-19:
 * Rendered links are restricted to http(s); JSON-LD is escaped; CSP blocks third-party scripts and framing.
 * Supabase's REST API: RLS is enabled on every table with no policies, so the anon key exposes nothing. The app never uses the anon/service keys.
 * Dependencies: run `npm audit` in CI periodically; review before upgrading major versions.
+
+## 9a. Website content manager
+
+* **Same records as the pipeline.** Manual notices are ordinary `notices` rows (`verification = manual`, no `dedupe_key`), so every public page, filter, search, the homepage boards and the detail page show them with no extra code. Closing Soon, State Jobs and Sectors are views of published jobs (last date within 7 days, state, sector) — not separate content.
+* **Statuses.** *draft* (editor work in progress; never public, not in the review queue) → *published* → *archived*. Unpublishing returns a manual notice to draft and a collected one to the review queue. Delete is permanent, needs the **admin** role and typing `DELETE`; a deleted collected notice is not re-created by the pipeline.
+* **Editor corrections are kept.** Every field an editor changes is marked editor-owned. The pipeline never overwrites those fields (nor any field of a reviewed notice); when the official source shows a different value it records a *pipeline suggestion* in the notice history and on the editor page.
+* **Duplicates.** Creating a notice checks the official URL, organisation + advertisement number and near-identical titles; the editor sees the matches and must tick “Create anyway”. The pipeline treats a manual notice's official PDF as already stored.
+* **Concurrent edits.** Saving checks the version the editor loaded; if someone (or the pipeline) changed the notice meanwhile, the save is refused with a message instead of overwriting.
+* **Uploads.** PDF only (checked by content), max 10 MB, sanitised names. Stored in the `uploads` table (or Supabase Storage, see §2). Served from `/files/<id>/<name>` only while a public notice uses the file; otherwise only to signed-in admins.
+* **Audit.** Every create, edit, status change, delete, upload and settings change is in the audit log; field-level changes are in each notice's history.
+
+## 9b. Organisation logos
+
+* Shown in listings, on notice pages and on organisation pages; organisations without one keep the initials badge.
+* `npx tsx scripts/fetch-logos.ts` downloads the icon each official website declares (or its header logo image), re-encodes it to a 128×128 WebP and stores it in `uploads`. Options: `--force`, `--org a,b`, `--sheet out.png` (contact sheet for review). `.github/workflows/logos.yml` runs it monthly.
+* **Review before trusting new logos.** Many government sites' icons are the State Emblem of India (use restricted by the State Emblem of India (Prohibition of Improper Use) Act, 2005) or not the organisation's logo at all (the flag, web-server default icons, certification badges). Reviewed decisions are in `src/db/seed/logos-hidden.ts`; hidden organisations are never fetched again.
+* Editors manage logos in **Reference data → Organisations**: upload (PNG/JPEG/WebP/GIF/SVG/ICO ≤ 1 MB, re-encoded the same way; never replaced automatically), hide, or reset.
+* Status on 2026-10-22: 93 organisations with a reviewed logo, 77 hidden (49 emblem, 28 wrong icon), 63 with no usable logo found.
 
 ## 10. Source coverage and data-quality tools
 

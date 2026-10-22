@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState } from "react";
-import type { ActionState } from "@/app/admin/actions";
+import type { ActionState } from "@/app/bigboss/actions";
 
 type Action = (state: ActionState, fd: FormData) => Promise<ActionState>;
 

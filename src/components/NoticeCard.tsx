@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { logoPath } from "@/lib/logo-url";
 import type { NoticeCard as Card } from "@/lib/queries";
 import { daysLeft, displayStatus, noticeHref, STATUS_STYLE, type DisplayStatus } from "@/lib/status";
 import { safeHref } from "@/lib/url";
@@ -12,11 +13,16 @@ export async function StatusBadge({ status }: { status: DisplayStatus }) {
   return <span className={`chip ${STATUS_STYLE[status].cls}`}>{t(`status.${status}` as MessageKey)}</span>;
 }
 
-/** Square badge with the organisation's acronym (or initials). */
-export function OrgBadge({ short, name, size = "md", tone = "default" }: { short: string | null; name: string | null; size?: "sm" | "md"; tone?: "default" | "urgent" }) {
+/** Square badge with the organisation's logo, or its acronym (initials) when it has none. */
+export function OrgBadge({ short, name, logoId, size = "md", tone = "default" }: { short: string | null; name: string | null; logoId?: number | null; size?: "sm" | "md" | "lg"; tone?: "default" | "urgent" }) {
+  if (logoId) {
+    const px = size === "sm" ? 32 : size === "lg" ? 64 : 40;
+    // eslint-disable-next-line @next/next/no-img-element -- small, already-optimised WebP served from our own storage
+    return <img src={logoPath(logoId)} alt="" width={px} height={px} loading="lazy" decoding="async" className="shrink-0 rounded border border-line bg-white object-contain p-0.5" style={{ width: px, height: px }} />;
+  }
   const raw = short ?? name ?? "";
   const label = (short ? short.replace(/\s*\(.*\)$/, "") : raw.split(/\s+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join("")).slice(0, 5) || "—";
-  const dim = size === "sm" ? "h-8 w-8 text-[9px]" : "h-10 w-10 text-[10px]";
+  const dim = size === "sm" ? "h-8 w-8 text-[9px]" : size === "lg" ? "h-16 w-16 text-sm" : "h-10 w-10 text-[10px]";
   const color = tone === "urgent" ? "border-amber-300 bg-amber-100 text-amber-900" : "border-line-strong bg-slate-100 text-brand";
   return (
     <span aria-hidden className={`flex ${dim} shrink-0 items-center justify-center rounded border font-mono font-bold tracking-tight ${color}`}>
@@ -68,7 +74,7 @@ export async function JobRow({ n, today, badge = true }: { n: Card; today: strin
       }`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
-        {badge && <OrgBadge short={n.orgShort} name={n.orgName} tone={urgent ? "urgent" : "default"} />}
+        {badge && <OrgBadge short={n.orgShort} name={n.orgName} logoId={n.orgLogoId} tone={urgent ? "urgent" : "default"} />}
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             {!isJob && <span className="tag bg-brand-soft uppercase text-brand">{t(`kind.${n.kind}` as MessageKey)}</span>}

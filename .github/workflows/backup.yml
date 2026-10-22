@@ -4,8 +4,8 @@ name: Database backup
 # The dump contains admin password hashes and audit data: keep the repository private,
 # or replace the upload step with encrypted off-site storage.
 on:
-  schedule:
-    - cron: "40 20 * * *" # 02:10 IST
+  # schedule:
+  #   - cron: "40 20 * * *" # 02:10 IST
   workflow_dispatch:
 
 permissions:

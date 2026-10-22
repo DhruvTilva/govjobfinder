@@ -1,7 +1,7 @@
 import { NOTICE_KINDS, type notices } from "@/db/schema";
 import { KIND_LABEL } from "@/lib/status";
 import type { referenceOptions } from "@/lib/admin-queries";
-import { saveNotice } from "@/app/admin/actions";
+import { saveNotice } from "@/app/bigboss/actions";
 import { ActionForm } from "./ActionForm";
 import { Field } from "./ui";
 
@@ -41,6 +41,7 @@ export function NoticeEditor({ n, opts, qualIds = [] }: { n?: N; opts: Opts; qua
   return (
     <ActionForm action={saveNotice} className="card p-5" submitLabel={n ? "Save changes" : "Create (goes to review)"}>
       {n && <input type="hidden" name="id" value={n.id} />}
+      {n && <input type="hidden" name="loadedUpdatedAt" value={n.updatedAt.getTime()} />}
       <div className="grid gap-4 sm:grid-cols-2">
         {text("title", "Title", { span: true })}
         <Field label="Kind" htmlFor="f-kind">

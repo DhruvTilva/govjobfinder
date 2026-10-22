@@ -139,6 +139,13 @@ describe("runPipeline source status", () => {
     expect(s.lastSuccessAt).not.toBeNull();
   });
 
+  it("reports a page that loads but has no notice links as no_links, not as a success", async () => {
+    pages.set(listingUrl, "<html><body><a href='/about'>About us</a><a href='/contact'>Contact</a></body></html>");
+    const r = await run();
+    expect(r.status).toBe("success");
+    expect(await source()).toMatchObject({ lastCheckStatus: "no_links", lastCheckFound: 0, consecutiveFailures: 0, urlStatus: "ok" });
+  });
+
   it("marks a check left 'checking' by a crashed run as failed on the next run", async () => {
     const [other] = await db.select({ id: sources.id }).from(sources).where(eq(sources.enabled, true)).limit(1);
     const otherId = other.id === sourceId ? sourceId + 1 : other.id;

@@ -324,7 +324,10 @@ export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: 
       const diff: Record<string, [unknown, unknown]> = { links: [parent.links?.length ?? 0, links.length] };
       const patch: Partial<typeof notices.$inferInsert> = { links, updatedAt: now, lastCheckedAt: now };
       let changeType: string = "corrigendum";
-      if ((amendment === "extension" || amendment === "corrigendum") && f.applyEnd && (!parent.applyEnd || f.applyEnd > parent.applyEnd)) {
+      if ((amendment === "extension" || amendment === "corrigendum") && f.applyEnd && (!parent.applyEnd || f.applyEnd > parent.applyEnd) && parent.fieldSources?.applyEnd === "admin") {
+        // An editor set this deadline by hand: keep it and record what the notice says.
+        await suggestChange(db, parent.id, { applyEnd: [parent.applyEnd, f.applyEnd] }, link.url);
+      } else if ((amendment === "extension" || amendment === "corrigendum") && f.applyEnd && (!parent.applyEnd || f.applyEnd > parent.applyEnd)) {
         patch.applyEnd = f.applyEnd;
         diff.applyEnd = [parent.applyEnd, f.applyEnd];
         changeType = "deadline_extended";
@@ -352,16 +355,22 @@ export async function processDiscovery(deps: ProcessDeps, d: DiscoveryRow, src: 
     if (existing) {
       const diff: Record<string, [unknown, unknown]> = {};
       const patch: Partial<typeof notices.$inferInsert> = { lastCheckedAt: now };
+      const suggested: Record<string, [unknown, unknown]> = {};
       const compare = <K extends "applyEnd" | "applyStart" | "totalPosts" | "examDate">(k: K, v: (typeof notices.$inferInsert)[K] | null) => {
-        if (v != null && existing[k] !== v && existing.verification !== "reviewed") {
-          diff[k] = [existing[k], v];
-          (patch as Record<string, unknown>)[k] = v;
+        if (v == null || existing[k] === v) return;
+        // Fields an editor corrected (or a fully reviewed notice) are never overwritten.
+        if (existing.verification === "reviewed" || existing.fieldSources?.[k] === "admin") {
+          suggested[k] = [existing[k], v];
+          return;
         }
+        diff[k] = [existing[k], v];
+        (patch as Record<string, unknown>)[k] = v;
       };
       compare("applyEnd", f.applyEnd);
       compare("applyStart", f.applyStart);
       compare("totalPosts", f.totalPosts);
       compare("examDate", f.examDate);
+      if (Object.keys(suggested).length) await suggestChange(db, existing.id, suggested, d.url);
       if (Object.keys(diff).length) {
         patch.updatedAt = now;
         await db.update(notices).set(patch).where(eq(notices.id, existing.id));
@@ -522,6 +531,22 @@ async function findRecruitment(db: DB, orgId: number, advtKey: string | null, ti
     return best?.row ?? null;
   }
   return null;
+}
+
+/**
+ * Records a value the pipeline found that differs from an editor-owned field, without applying
+ * it. Shown in the notice's change history so an editor can decide. Not repeated for the same value.
+ */
+async function suggestChange(db: DB, noticeId: number, diff: Record<string, [unknown, unknown]>, url: string) {
+  const recent = await db
+    .select({ diff: noticeRevisions.diff })
+    .from(noticeRevisions)
+    .where(and(eq(noticeRevisions.noticeId, noticeId), eq(noticeRevisions.changeType, "pipeline_suggestion")))
+    .orderBy(desc(noticeRevisions.createdAt))
+    .limit(20);
+  const key = JSON.stringify(Object.entries(diff).map(([k, v]) => [k, v[1]]));
+  if (recent.some((r) => JSON.stringify(Object.entries(r.diff).filter(([k]) => k !== "source").map(([k, v]) => [k, (v as unknown[])[1]])) === key)) return;
+  await db.insert(noticeRevisions).values({ noticeId, changeType: "pipeline_suggestion", diff: { ...diff, source: [null, url] }, actor: "pipeline" });
 }
 
 /** Marks published recruitments whose closing date has passed as closed. */

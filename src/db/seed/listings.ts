@@ -5,6 +5,7 @@
  *
  * Keyed by the configured home-page URL. Existing sources still pointing at the key are
  * moved to the listing URL on the next seed; sources an admin has already changed are left alone.
+ * An entry with the same URL only adds allowed domains (e.g. a CDN the site links its PDFs from).
  */
 export const LISTING_PAGES: Record<string, { url: string; domains?: string[] }> = {
   "https://psc.cg.gov.in": { url: "https://psc.cg.gov.in/Advertisement.php" }, // 40
@@ -18,4 +19,15 @@ export const LISTING_PAGES: Record<string, { url: string; domains?: string[] }> 
   "https://bel-india.in": { url: "https://bel-india.in/job-notifications/" }, // 8
   "https://licindia.in": { url: "https://licindia.in/web/guest/careers" }, // 2
   "https://cbi.gov.in": { url: "https://cbi.gov.in/vacancies" }, // 1
+  // Checked 2026-10-21.
+  "https://careers.ntpc.co.in": { url: "https://careers.ntpc.co.in/recruitment/" }, // 40
+  "https://www.powergrid.in": { url: "https://www.powergrid.in/en/job-opportunities" }, // 40
+  "https://www.npcil.nic.in": { url: "https://www.npcil.nic.in/content/289_1_Opportunities.aspx" }, // 13
+  "https://www.indiapost.gov.in": { url: "https://www.indiapost.gov.in/vacancies" }, // 13
+  // The certificate covers *.cisf.gov.in, so the configured www.cisfrectt… host fails TLS.
+  "https://www.cisfrectt.cisf.gov.in": { url: "https://cisfrectt.cisf.gov.in/" }, // 4
+  // The regional RRBs moved to rrb.indianrailways.gov.in; the old host no longer answers.
+  "https://www.rrbahmedabad.gov.in": { url: "https://rrb.indianrailways.gov.in/ahmedabad", domains: ["rrb.indianrailways.gov.in"] },
+  // Notice PDFs are hosted on this CloudFront distribution, linked from the BSF page.
+  "https://rectt.bsf.gov.in": { url: "https://rectt.bsf.gov.in", domains: ["d3t79nicn48uzj.cloudfront.net"] }, // 6
 };

@@ -85,6 +85,33 @@ export function parseFeed(xml: string, baseUrl: string): HarvestedLink[] {
   return out;
 }
 
+/** "blocked" = the site (or our safety rules) refuses us on purpose; "broken" = it is not working. */
+export function urlStatusFor(fe: FetchError): "timeout" | "blocked" | "broken" {
+  if (fe.code === "timeout") return "timeout";
+  if (fe.code === "blocked" || fe.code === "robots") return "blocked";
+  if (fe.code === "http" && (fe.status === 401 || fe.status === 403 || fe.status === 429)) return "blocked";
+  return "broken";
+}
+
+/** Error text for the Sources page: the raw error plus what it means for an operator. */
+export function describeFailure(fe: FetchError): string {
+  const m = fe.message;
+  let why = "";
+  if (fe.code === "robots") why = "the site's robots.txt does not allow crawling this page";
+  else if (fe.code === "http" && (fe.status === 401 || fe.status === 403)) why = "the site refuses automated access";
+  else if (fe.code === "http" && fe.status === 429) why = "rate-limited by the site";
+  else if (fe.code === "http" && fe.status === 404) why = "page not found; the listing URL has probably moved";
+  else if (fe.code === "http" && (fe.status ?? 0) >= 500) why = "server error on the site; usually temporary";
+  else if (fe.code === "timeout") why = "no response in time; the site may be down or not reachable from this network";
+  else if (/CERT_HAS_EXPIRED/.test(m)) why = "the site's TLS certificate has expired";
+  else if (/ALTNAME|HOSTNAME/.test(m)) why = "the TLS certificate does not cover this hostname";
+  else if (/ENOTFOUND/.test(m)) why = "the domain does not exist (DNS)";
+  else if (/EAI_AGAIN/.test(m)) why = "DNS lookup failed; the domain's name servers are not answering";
+  else if (/ECONNREFUSED/.test(m)) why = "the server refused the connection";
+  else if (/ECONNRESET/.test(m)) why = "the server reset the connection";
+  return `${fe.code}: ${m}${why ? ` (${why})` : ""}`;
+}
+
 async function scanSource(ctx: Ctx, src: SourceRow): Promise<void> {
   const { db } = ctx;
   const now = new Date();
@@ -136,7 +163,7 @@ async function scanSource(ctx: Ctx, src: SourceRow): Promise<void> {
         lastStatusCode: res.status,
         lastError: null,
         consecutiveFailures: 0,
-        lastCheckStatus: fresh ? "new_notices" : "no_new",
+        lastCheckStatus: (res.notModified ? src.lastCheckFound : found) === 0 ? "no_links" : fresh ? "new_notices" : "no_new",
         lastCheckFound: res.notModified ? src.lastCheckFound : found,
         lastCheckNew: fresh,
         etag: res.headers["etag"] ?? null,
@@ -161,11 +188,11 @@ async function scanSource(ctx: Ctx, src: SourceRow): Promise<void> {
       .update(sources)
       .set({
         lastCheckedAt: now,
-        lastError: `${fe.code}: ${fe.message}`.slice(0, 500),
+        lastError: describeFailure(fe).slice(0, 500),
         lastStatusCode: fe.status ?? null,
         consecutiveFailures: failures,
         lastCheckStatus: "failed",
-        urlStatus: fe.code === "timeout" ? "timeout" : fe.code === "blocked" ? "blocked" : "broken",
+        urlStatus: urlStatusFor(fe),
         nextCheckAt: new Date(now.getTime() + backoff),
         updatedAt: now,
       })

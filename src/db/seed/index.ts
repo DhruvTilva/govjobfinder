@@ -5,6 +5,7 @@ import { SECTORS, QUALIFICATIONS } from "./taxonomy";
 import { STATES, type BodyCategory } from "./states";
 import { CENTRAL_ORGS, STATE_SCOPED_CENTRAL_SLUGS } from "./central";
 import { EXAMS } from "./exams";
+import { NATIONAL_EXAMS } from "./exams-national";
 import { LISTING_PAGES } from "./listings";
 import { slugify } from "@/lib/text";
 import { hostnameOf, isGovDomain } from "@/lib/url";
@@ -16,6 +17,9 @@ const CATEGORY_SECTOR: Record<BodyCategory, string> = {
   teaching: "teaching",
   health: "medical",
   portal: "state-government",
+  court: "judiciary",
+  utility: "psu",
+  education: "teaching",
 };
 
 const INTERVAL_BY_PRIORITY: Record<number, number> = { 1: 120, 2: 360, 3: 720 };
@@ -26,6 +30,7 @@ const INTERVAL_BY_PRIORITY: Record<number, number> = { 1: 120, 2: 360, 3: 720 };
  */
 export async function seedReferenceData(db: DB) {
   const counts = { states: 0, sectors: 0, qualifications: 0, organizations: 0, sources: 0, exams: 0 };
+  await applyMovedUrls(db);
 
   // Sectors & qualifications
   for (const [i, s] of SECTORS.entries()) {
@@ -89,7 +94,7 @@ export async function seedReferenceData(db: DB) {
         url: b.url,
         scan: b.scan !== false,
         priority,
-        trust: !isPortal && isGovDomain(host) ? "trusted" : "review",
+        trust: b.trusted || (!isPortal && isGovDomain(host)) ? "trusted" : "review",
         allowedDomains: [host],
       });
     }
@@ -111,7 +116,7 @@ export async function seedReferenceData(db: DB) {
       officialDomains: domains,
       referenceSource: o.ref
         .split(",")
-        .map((r) => ({ sector: "Sector-wise-job.docx", top50: "Top 50 Exams Technical Sector.xlsx", research: "Added after research" })[r] ?? r)
+        .map((r) => ({ sector: "Sector-wise-job.docx", top50: "Top 50 Exams Technical Sector.xlsx", research: "Added after research", audit: "Competitor coverage audit (SarkariResult, FreeJobAlert), 2026-10-21" })[r] ?? r)
         .join("; "),
       notes: o.note ?? null,
     });
@@ -140,9 +145,11 @@ export async function seedReferenceData(db: DB) {
     }
   }
 
-  // Technical exam directory
-  const orgRows = await db.select({ id: organizations.id, slug: organizations.slug }).from(organizations);
-  for (const e of EXAMS) {
+  // Exam directory: the technical "Top 50" list plus the national list of central and state exams.
+  const orgRows = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name, website: organizations.website }).from(organizations);
+  for (const e of [...EXAMS, ...NATIONAL_EXAMS]) {
+    const org = e.org ? orgRows.find((o) => o.slug === e.org) : undefined;
+    if (e.org && !org) throw new Error(`Exam "${e.name}" refers to unknown organisation "${e.org}"`);
     const r = await db
       .insert(exams)
       .values({
@@ -150,9 +157,9 @@ export async function seedReferenceData(db: DB) {
         name: e.name,
         group: e.group,
         rank: e.rank,
-        organizationId: e.org ? orgRows.find((o) => o.slug === e.org)?.id ?? null : null,
-        recruitingBody: e.body,
-        officialUrl: e.url ?? null,
+        organizationId: org?.id ?? null,
+        recruitingBody: e.body || org?.name || null,
+        officialUrl: e.url ?? org?.website ?? null,
         typicalWindow: e.window,
         focusAreas: e.focus,
         indicativeSalary: e.salary,
@@ -183,6 +190,9 @@ async function insertSource(
   if (listing) {
     const allowedDomains = [...new Set([...s.allowedDomains, ...(listing.domains ?? [])])];
     // Move an untouched existing source (still on the home page) to its listing page.
+    if (listing.url === s.url) {
+      await db.update(sources).set({ allowedDomains, updatedAt: new Date() }).where(eq(sources.url, s.url));
+    }
     const [taken] = await db.select({ id: sources.id }).from(sources).where(eq(sources.url, listing.url));
     if (!taken) {
       await db
@@ -209,4 +219,24 @@ async function insertSource(
     .onConflictDoNothing()
     .returning({ id: sources.id });
   return r.length;
+}
+
+/**
+ * Moves sources whose URL changed (LISTING_PAGES) before any insert, also when the old URL
+ * is no longer in the seed lists. If both rows already exist, the old one is disabled and
+ * points to its replacement, so no duplicate source keeps being scanned.
+ */
+async function applyMovedUrls(db: DB) {
+  for (const [oldUrl, listing] of Object.entries(LISTING_PAGES)) {
+    if (listing.url === oldUrl) continue;
+    const [oldRow] = await db.select({ id: sources.id, allowedDomains: sources.allowedDomains }).from(sources).where(eq(sources.url, oldUrl));
+    if (!oldRow) continue;
+    const [newRow] = await db.select({ id: sources.id }).from(sources).where(eq(sources.url, listing.url));
+    if (newRow) {
+      await db.update(sources).set({ enabled: false, notes: `Superseded by ${listing.url} (source #${newRow.id}).`, updatedAt: new Date() }).where(eq(sources.id, oldRow.id));
+    } else {
+      const allowedDomains = [...new Set([...oldRow.allowedDomains, ...(listing.domains ?? [])])];
+      await db.update(sources).set({ url: listing.url, allowedDomains, contentHash: null, etag: null, lastModified: null, nextCheckAt: null, updatedAt: new Date() }).where(eq(sources.id, oldRow.id));
+    }
+  }
 }

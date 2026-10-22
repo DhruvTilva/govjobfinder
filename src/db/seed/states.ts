@@ -4,7 +4,7 @@
  * Corrections against the workbook are recorded in `note` and in docs/DATA_SOURCES.md.
  */
 
-export type BodyCategory = "commission" | "board" | "police" | "teaching" | "portal" | "health";
+export type BodyCategory = "commission" | "board" | "police" | "teaching" | "portal" | "health" | "court" | "utility" | "education";
 
 export type StateBody = {
   name: string;
@@ -14,6 +14,8 @@ export type StateBody = {
   note?: string;
   /** Login/application portals are not scanned for notices. */
   scan?: boolean;
+  /** Official body on its own (non-.gov.in) domain, verified by hand: eligible for auto-publish. */
+  trusted?: boolean;
 };
 
 export type StateSeed = {
@@ -52,6 +54,8 @@ export const STATES: StateSeed[] = [
       { name: "Assam Public Service Commission", short: "APSC", url: "https://apsc.nic.in", category: "commission" },
       { name: "Board of Secondary Education, Assam (ADRE)", short: "SEBA", url: "https://sebaonline.org", category: "teaching", note: "An exam board, listed because it conducts ADRE recruitment exams." },
       { name: "State Level Police Recruitment Board, Assam", short: "SLPRB Assam", url: "https://slprbassam.in", category: "police" },
+      { name: "Gauhati High Court", short: "Gauhati HC", url: "https://ghconline.gov.in/index.php/recruitment-judicial-officer/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "National Health Mission, Assam", short: "NHM Assam", url: "https://nhm.assam.gov.in/documents/circular-and-notification", category: "health", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -63,6 +67,8 @@ export const STATES: StateSeed[] = [
       { name: "Bihar Police Subordinate Services Commission", short: "BPSSC", url: "https://bpssc.bihar.gov.in", category: "police" },
       { name: "Central Selection Board of Constable", short: "CSBC", url: "https://csbc.bihar.gov.in", category: "police" },
       { name: "Bihar Technical Service Commission", short: "BTSC", url: "https://btsc.bihar.gov.in", category: "health" },
+      { name: "Patna High Court", short: "Patna HC", url: "https://patnahighcourt.gov.in/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "Bihar Combined Entrance Competitive Examination Board", short: "BCECEB", url: "https://bceceboard.bihar.gov.in/", category: "education", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -71,6 +77,8 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Chhattisgarh Public Service Commission", short: "CGPSC", url: "https://psc.cg.gov.in", category: "commission" },
       { name: "Chhattisgarh Professional Examination Board", short: "CG Vyapam", url: "https://vyapam.cgstate.gov.in", category: "board" },
+      { name: "High Court of Chhattisgarh", short: "CG HC", url: "https://highcourt.cg.gov.in/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "Chhattisgarh Board of Secondary Education", short: "CGBSE", url: "https://cgbse.nic.in/", category: "education", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -113,6 +121,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Jharkhand Public Service Commission", short: "JPSC", url: "https://jpsc.gov.in", category: "commission" },
       { name: "Jharkhand Staff Selection Commission", short: "JSSC", url: "https://jssc.nic.in", category: "board" },
+      { name: "Jharkhand High Court", short: "Jharkhand HC", url: "https://jharkhandhighcourt.nic.in/vacancies-other-govt-deppt.php", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -127,7 +136,11 @@ export const STATES: StateSeed[] = [
   {
     code: "KL", slug: "kerala", name: "Kerala", type: "state",
     highlights: "Kerala PSC (nearly all state posts), KSEB, Devaswom Board. Single unified recruiter for the state",
-    bodies: [{ name: "Kerala Public Service Commission", short: "Kerala PSC", url: "https://www.keralapsc.gov.in", category: "commission" }],
+    bodies: [
+      { name: "Kerala Public Service Commission", short: "Kerala PSC", url: "https://www.keralapsc.gov.in", category: "commission" },
+      { name: "High Court of Kerala", short: "Kerala HC", url: "https://hckrecruitment.keralacourts.in/hckrecruitment/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "Kerala Devaswom Recruitment Board", short: "KDRB", url: "https://kdrb.kerala.gov.in/", category: "board", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+    ],
   },
   {
     code: "MP", slug: "madhya-pradesh", name: "Madhya Pradesh", type: "state",
@@ -135,6 +148,8 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Madhya Pradesh Public Service Commission", short: "MPPSC", url: "https://mppsc.mp.gov.in", category: "commission" },
       { name: "Madhya Pradesh Employees Selection Board", short: "MPESB", url: "https://esb.mp.gov.in", category: "board" },
+      { name: "Madhya Pradesh High Court", short: "MP HC", url: "https://mphc.gov.in/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "National Health Mission, Madhya Pradesh", short: "MP NHM", url: "https://nhmmp.gov.in/Vacancy.aspx", category: "health", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -185,6 +200,7 @@ export const STATES: StateSeed[] = [
       { name: "Odisha Staff Selection Commission", short: "OSSC", url: "https://ossc.gov.in", category: "board" },
       { name: "Odisha Subordinate Staff Selection Commission", short: "OSSSC", url: "https://osssc.gov.in", category: "board" },
       { name: "Odisha Police", url: "https://odishapolice.gov.in", category: "police" },
+      { name: "Board of Secondary Education, Odisha", short: "BSE Odisha", url: "https://bseodisha.ac.in/", category: "education", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -194,6 +210,7 @@ export const STATES: StateSeed[] = [
       { name: "Punjab Public Service Commission", short: "PPSC", url: "https://ppsc.gov.in", category: "commission" },
       { name: "Punjab Subordinate Services Selection Board", short: "PSSSB", url: "https://sssb.punjab.gov.in", category: "board" },
       { name: "Punjab Police", url: "https://punjabpolice.gov.in", category: "police" },
+      { name: "Punjab State Power Corporation", short: "PSPCL", url: "https://www.pspcl.in/", category: "utility", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -204,6 +221,7 @@ export const STATES: StateSeed[] = [
       { name: "Rajasthan Staff Selection Board", short: "RSSB", url: "https://rssb.rajasthan.gov.in", category: "board" },
       { name: "Rajasthan Police", url: "https://police.rajasthan.gov.in", category: "police" },
       { name: "SSO Rajasthan (application login portal)", short: "SSO Rajasthan", url: "https://sso.rajasthan.gov.in", category: "portal", scan: false },
+      { name: "Rajasthan High Court", short: "Rajasthan HC", url: "https://hcraj.nic.in/hcraj/recruitment.php", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -222,6 +240,7 @@ export const STATES: StateSeed[] = [
       { name: "Teachers Recruitment Board, Tamil Nadu", short: "TN TRB", url: "https://trb.tn.gov.in", category: "teaching" },
       { name: "Tamil Nadu Uniformed Services Recruitment Board", short: "TNUSRB", url: "https://www.tnusrb.tn.gov.in", category: "police" },
       { name: "Medical Services Recruitment Board, Tamil Nadu", short: "TN MRB", url: "https://mrb.tn.gov.in", category: "health" },
+      { name: "Madras High Court", short: "Madras HC", url: "https://www.mhc.tn.gov.in/recruitment/login", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -230,6 +249,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Telangana Public Service Commission", short: "TGPSC", url: "https://tgpsc.gov.in", category: "commission" },
       { name: "Telangana State Level Police Recruitment Board", short: "TGPRB", url: "https://www.tgprb.in", category: "police", note: "Not a .gov.in domain; treated as the organisation's own domain." },
+      { name: "High Court for the State of Telangana", short: "Telangana HC", url: "https://tshc.gov.in/showChildDocTypes?id=95", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -248,6 +268,12 @@ export const STATES: StateSeed[] = [
       { name: "UP Subordinate Services Selection Commission", short: "UPSSSC", url: "https://upsssc.gov.in", category: "board" },
       { name: "UP Police Recruitment & Promotion Board", short: "UPPRPB", url: "https://uppbpb.gov.in", category: "police" },
       { name: "UP Education Service Selection Commission", short: "UPESSC", url: "https://upessc.up.gov.in", category: "teaching" },
+      { name: "Allahabad High Court", short: "Allahabad HC", url: "https://www.allahabadhighcourt.in/calendar/itemWiseList.jsp?group=7", category: "court", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "UP Rajya Vidyut Utpadan Nigam", short: "UPRVUNL", url: "https://www.uprvunl.org/", category: "utility", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "UP State Road Transport Corporation", short: "UPSRTC", url: "https://upsrtc.up.gov.in/", category: "utility", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "National Health Mission, Uttar Pradesh", short: "UP NHM", url: "https://nhm.up.gov.in/", category: "health", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "Sanjay Gandhi Postgraduate Institute of Medical Sciences", short: "SGPGIMS", url: "https://sgpgims.org.in/", category: "health", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
+      { name: "King George's Medical University", short: "KGMU", url: "https://www.kgmu.org/", category: "health", trusted: true, note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -256,6 +282,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Uttarakhand Public Service Commission", short: "UKPSC", url: "https://psc.uk.gov.in", category: "commission" },
       { name: "Uttarakhand Subordinate Service Selection Commission", short: "UKSSSC", url: "https://sssc.uk.gov.in", category: "board" },
+      { name: "Uttarakhand Board of School Education", short: "UBSE", url: "https://ubse.uk.gov.in/", category: "education", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {
@@ -292,6 +319,7 @@ export const STATES: StateSeed[] = [
     bodies: [
       { name: "Delhi Subordinate Services Selection Board", short: "DSSSB", url: "https://dsssb.delhi.gov.in", category: "board" },
       { name: "Delhi Police", url: "https://delhipolice.gov.in", category: "police" },
+      { name: "Delhi High Court", short: "Delhi HC", url: "https://delhihighcourt.nic.in/web/", category: "court", note: "Added in the competitor coverage audit; listing page verified 2026-10-21." },
     ],
   },
   {

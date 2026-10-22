@@ -16,6 +16,8 @@ import {
   sectors,
   sources,
   states,
+  exams,
+  uploads,
   type NoticeKind,
   type NoticeStatus,
   type SourceCheckStatus,
@@ -270,3 +272,87 @@ export async function listOrganizationsAdmin(q?: string) {
     .limit(300);
 }
 
+
+// ---------- content manager ----------
+
+export const CONTENT_PAGE = 50;
+export type ContentFilter = {
+  q?: string;
+  kind?: NoticeKind;
+  status?: NoticeStatus;
+  stateId?: number;
+  orgId?: number;
+  origin?: "manual" | "auto";
+  from?: string;
+  to?: string;
+  page?: number;
+};
+
+export async function listContent(f: ContentFilter) {
+  const db = await getDb();
+  const conds: SQL[] = [];
+  if (f.kind) conds.push(eq(notices.kind, f.kind));
+  if (f.status) conds.push(eq(notices.status, f.status));
+  if (f.stateId) conds.push(eq(notices.stateId, f.stateId));
+  if (f.orgId) conds.push(eq(notices.organizationId, f.orgId));
+  // Manual = created by an editor (no harvested link behind it).
+  if (f.origin === "manual") conds.push(and(eq(notices.verification, "manual"), sql`${notices.dedupeKey} is null`)!);
+  if (f.origin === "auto") conds.push(sql`${notices.dedupeKey} is not null`);
+  if (f.from) conds.push(sql`${notices.createdAt} >= ${f.from}::date`);
+  if (f.to) conds.push(sql`${notices.createdAt} < (${f.to}::date + 1)`);
+  if (f.q) conds.push(or(ilike(notices.title, like(f.q)), ilike(notices.advtNo, like(f.q)), ilike(notices.keywords, like(f.q)), ilike(organizations.name, like(f.q)), ilike(organizations.shortName, like(f.q)))!);
+  const where = conds.length ? and(...conds) : undefined;
+  const page = f.page ?? 1;
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: notices.id,
+        slug: notices.slug,
+        title: notices.title,
+        kind: notices.kind,
+        status: notices.status,
+        pinned: notices.pinned,
+        verification: notices.verification,
+        manual: sql<boolean>`(${notices.verification} = 'manual' and ${notices.dedupeKey} is null)`,
+        createdAt: notices.createdAt,
+        updatedAt: notices.updatedAt,
+        publishedAt: notices.publishedAt,
+        orgShort: organizations.shortName,
+        orgName: organizations.name,
+        stateName: states.name,
+        sourceName: sources.name,
+      })
+      .from(notices)
+      .leftJoin(organizations, eq(notices.organizationId, organizations.id))
+      .leftJoin(states, eq(notices.stateId, states.id))
+      .leftJoin(sources, eq(notices.sourceId, sources.id))
+      .where(where)
+      .orderBy(desc(notices.updatedAt), desc(notices.id))
+      .limit(CONTENT_PAGE)
+      .offset((page - 1) * CONTENT_PAGE),
+    db.select({ total: count() }).from(notices).leftJoin(organizations, eq(notices.organizationId, organizations.id)).where(where),
+  ]);
+  return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / CONTENT_PAGE)) };
+}
+
+/** Counts per section and status for the content manager's header. */
+export async function contentCounts() {
+  const db = await getDb();
+  return db.select({ kind: notices.kind, status: notices.status, n: count() }).from(notices).groupBy(notices.kind, notices.status);
+}
+
+export async function getUploadMeta(id: number | null) {
+  if (!id) return null;
+  const db = await getDb();
+  const [u] = await db.select({ id: uploads.id, fileName: uploads.fileName, size: uploads.size, createdAt: uploads.createdAt }).from(uploads).where(eq(uploads.id, id));
+  return u ?? null;
+}
+
+export async function listExamsAdmin() {
+  const db = await getDb();
+  return db
+    .select({ e: exams, orgShort: organizations.shortName, orgName: organizations.name })
+    .from(exams)
+    .leftJoin(organizations, eq(exams.organizationId, organizations.id))
+    .orderBy(asc(exams.group), asc(exams.rank), asc(exams.name));
+}

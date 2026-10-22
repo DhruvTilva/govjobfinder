@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { getNotice } from "@/lib/queries";
+import { uploadPath } from "@/lib/storage";
+import { OrgBadge } from "./NoticeCard";
 import { daysLeft, displayStatus, KIND_PATH, noticeHref } from "@/lib/status";
 import { hostnameOf, isOfficialUrl, safeHref } from "@/lib/url";
 import { siteUrl } from "@/lib/site";
@@ -42,6 +44,11 @@ export async function NoticeDetail({ data }: { data: Data }) {
   const listPath = KIND_PATH[n.kind];
   const fmt = (iso: string | null) => (iso ? formatDateL(iso, lang) : null);
   const kindLabel = t(`kind.${n.kind}` as MessageKey);
+  // Editor-entered notices show only the fields the editor filled; "not stated in notice" is
+  // kept for collected notices, where it tells readers the automatic reading found nothing.
+  const manual = n.verification === "manual" && !n.dedupeKey;
+  const show = (v: unknown) => !manual || (v != null && v !== "" && v !== "unknown");
+  const hasFacts = [n.applyEnd, n.applyStart, n.totalPosts, n.advtNo, n.examDate, n.noticeDate, n.ageMin ?? n.ageMax, n.jobType].some((v) => v != null && v !== "unknown");
 
   return (
     <div className="container-page py-6">
@@ -72,8 +79,8 @@ export async function NoticeDetail({ data }: { data: Data }) {
             <h1 className="mt-3 text-2xl leading-tight sm:text-[28px]">{n.title}</h1>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
               {data.orgName && (
-                <Link href={`/organizations/${data.orgSlug}`} className="flex items-center gap-1 hover:text-navy-950 hover:underline">
-                  <BuildingIcon /> {data.orgName}
+                <Link href={`/organizations/${data.orgSlug}`} className="flex items-center gap-1.5 hover:text-navy-950 hover:underline">
+                  {data.orgLogoId ? <OrgBadge short={data.orgShort} name={data.orgName} logoId={data.orgLogoId} size="sm" /> : <BuildingIcon />} {data.orgName}
                 </Link>
               )}
               <span className="flex items-center gap-1">
@@ -92,31 +99,40 @@ export async function NoticeDetail({ data }: { data: Data }) {
 
             <div className="mt-4 flex flex-wrap gap-2">
               <OfficialLink url={n.notificationUrl} label={t("detail.officialNotification")} domains={domains} primary t={t} />
+              {data.attachmentId && data.attachmentName && (
+                <a href={uploadPath({ id: data.attachmentId, fileName: data.attachmentName })} target="_blank" rel="noopener noreferrer" className={n.notificationUrl ? "btn-secondary" : "btn-primary"}>
+                  <span>
+                    {t("detail.pdfCopy")}
+                    <span className={`block text-[11px] font-normal ${n.notificationUrl ? "text-muted" : "text-white/80"}`}>{t("detail.pdfCopyNote")}</span>
+                  </span>
+                  <DocIcon />
+                </a>
+              )}
               <OfficialLink url={n.applyUrl} label={t("detail.applyPortal")} domains={domains} t={t} />
               <SaveButton item={{ slug: n.slug, kind: n.kind, title: n.title, applyEnd: n.applyEnd, org: data.orgShort ?? data.orgName }} />
             </div>
           </header>
 
-          {isJob && (
+          {isJob && (!manual || hasFacts) && (
             <section className="card p-5" aria-labelledby="facts">
               <h2 id="facts" className="text-xl">
                 {t("detail.keyDetails")}
               </h2>
               <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-                <Fact t={t} label={t("detail.lastDateApply")} value={fmt(n.applyEnd)} source={fs.applyEnd} strong />
-                <Fact t={t} label={t("detail.opens")} value={fmt(n.applyStart)} source={fs.applyStart} />
-                <Fact t={t} label={t("detail.totalPosts")} value={n.totalPosts?.toLocaleString("en-IN")} source={fs.totalPosts} />
-                <Fact t={t} label={t("detail.advt")} value={n.advtNo} source={fs.advtNo} />
-                <Fact t={t} label={t("detail.examDate")} value={fmt(n.examDate)} source={fs.examDate} />
-                <Fact t={t} label={t("detail.noticeDate")} value={fmt(n.noticeDate)} source={fs.noticeDate} />
-                <Fact
+                {show(n.applyEnd) && <Fact t={t} label={t("detail.lastDateApply")} value={fmt(n.applyEnd)} source={fs.applyEnd} strong />}
+                {show(n.applyStart) && <Fact t={t} label={t("detail.opens")} value={fmt(n.applyStart)} source={fs.applyStart} />}
+                {show(n.totalPosts) && <Fact t={t} label={t("detail.totalPosts")} value={n.totalPosts?.toLocaleString("en-IN")} source={fs.totalPosts} />}
+                {show(n.advtNo) && <Fact t={t} label={t("detail.advt")} value={n.advtNo} source={fs.advtNo} />}
+                {show(n.examDate) && <Fact t={t} label={t("detail.examDate")} value={fmt(n.examDate)} source={fs.examDate} />}
+                {show(n.noticeDate) && <Fact t={t} label={t("detail.noticeDate")} value={fmt(n.noticeDate)} source={fs.noticeDate} />}
+                {show(n.ageMin ?? n.ageMax) && <Fact
                   t={t}
                   label={t("detail.age")}
                   value={n.ageMin || n.ageMax ? t("detail.ageRange", { a: n.ageMin ?? "—", b: n.ageMax ?? "—" }) : null}
                   source={fs.ageMax ?? fs.ageMin}
                   note={n.ageText ?? undefined}
-                />
-                <Fact t={t} label={t("detail.jobType")} value={n.jobType !== "unknown" ? t(`jobType.${n.jobType}` as MessageKey) : null} source={fs.jobType} />
+                />}
+                {show(n.jobType) && <Fact t={t} label={t("detail.jobType")} value={n.jobType !== "unknown" ? t(`jobType.${n.jobType}` as MessageKey) : null} source={fs.jobType} />}
               </dl>
             </section>
           )}
@@ -127,7 +143,7 @@ export async function NoticeDetail({ data }: { data: Data }) {
             </Section>
           )}
 
-          {isJob && (
+          {isJob && (!manual || n.qualificationText || data.quals.length > 0 || n.experienceText) && (
             <Section t={t} title={t("detail.eligibility")} source={fs.qualificationText}>
               {data.quals.length > 0 && (
                 <ul className="mb-2 flex flex-wrap gap-1.5">
@@ -144,12 +160,12 @@ export async function NoticeDetail({ data }: { data: Data }) {
               {n.experienceText && <p className="mt-2">{n.experienceText}</p>}
             </Section>
           )}
-          {isJob && (
+          {isJob && show(n.feeText) && (
             <Section t={t} title={t("detail.fee")} source={fs.feeText}>
               {n.feeText ? <p>{n.feeText}</p> : <NotStated t={t} what={t("detail.whatFee")} />}
             </Section>
           )}
-          {isJob && (
+          {isJob && show(n.salaryText) && (
             <Section t={t} title={t("detail.pay")} source={fs.salaryText}>
               {n.salaryText ? <p>{n.salaryText}</p> : <NotStated t={t} what={t("detail.whatPay")} />}
             </Section>
@@ -278,9 +294,16 @@ export async function NoticeDetail({ data }: { data: Data }) {
               <div>
                 <dt className="text-xs text-muted">{t("detail.howFilled")}</dt>
                 <dd className="text-xs">
-                  {t("detail.filledAuto")}
-                  {Object.values(fs).includes("ai") ? t("detail.filledAi") : ""}
-                  {n.verification !== "auto" ? t("detail.filledEditor") : ""}.
+                  {manual ? (
+                    t("detail.filledManual")
+                  ) : (
+                    <>
+                      {t("detail.filledAuto")}
+                      {Object.values(fs).includes("ai") ? t("detail.filledAi") : ""}
+                      {n.verification !== "auto" ? t("detail.filledEditor") : ""}
+                    </>
+                  )}
+                  .
                 </dd>
               </div>
             </dl>

@@ -78,6 +78,15 @@ export const organizations = pgTable(
     referenceSource: text("reference_source"),
     notes: text("notes"),
     active: boolean("active").notNull().default(true),
+    /** Logo image (in `uploads`). Shown in listings and on the organisation page. */
+    logoId: integer("logo_id").references((): AnyPgColumn => uploads.id, { onDelete: "set null" }),
+    /**
+     * auto = downloaded from the official website by scripts/fetch-logos.ts; admin = uploaded by an
+     * editor (never replaced automatically); hidden = deliberately not shown (e.g. the State Emblem
+     * of India, whose use is restricted) — the initials badge is shown instead.
+     */
+    logoSource: text("logo_source", { enum: ["auto", "admin", "hidden"] }),
+    logoCheckedAt: ts("logo_checked_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -101,7 +110,11 @@ export type SourceConfig = {
   maxItems?: number;
 };
 
-export const SOURCE_CHECK_STATUSES = ["never", "checking", "new_notices", "no_new", "partial", "failed"] as const;
+/**
+ * no_links: the page loaded but no recruitment links were found on it — extraction did not
+ * work (wrong listing URL, JavaScript-only page, selector needed), so it is not a success.
+ */
+export const SOURCE_CHECK_STATUSES = ["never", "checking", "new_notices", "no_new", "no_links", "partial", "failed"] as const;
 export type SourceCheckStatus = (typeof SOURCE_CHECK_STATUSES)[number];
 
 export const sources = pgTable(
@@ -151,10 +164,13 @@ export const sources = pgTable(
   (t) => [index("sources_next_check_idx").on(t.enabled, t.nextCheckAt), index("sources_org_idx").on(t.organizationId)],
 );
 
-export const NOTICE_KINDS = ["recruitment", "admit_card", "result", "answer_key", "syllabus", "exam_date", "other"] as const;
+/** admission: admissions, entrance exams and counselling for courses (not jobs). */
+export const NOTICE_KINDS = ["recruitment", "admit_card", "result", "answer_key", "syllabus", "exam_date", "admission", "other"] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
 export const NOTICE_STATUSES = [
+  /** Being written by an editor in the content manager; never public, not in the review queue. */
+  "draft",
   "discovered",
   "extracted",
   "needs_review",
@@ -250,6 +266,12 @@ export const notices = pgTable(
     reviewReasons: text("review_reasons").array().notNull().default(sql`'{}'::text[]`),
     dedupeKey: text("dedupe_key"),
     docHash: text("doc_hash"),
+    /** Shown first in listings and on the homepage boards (set in the content manager). */
+    pinned: boolean("pinned").notNull().default(false),
+    /** Extra search terms set by editors (comma separated); matched by public search. */
+    keywords: text("keywords"),
+    /** Official PDF uploaded by an editor; served from /files/<id> once the notice is public. */
+    attachmentId: integer("attachment_id").references((): AnyPgColumn => uploads.id, { onDelete: "set null" }),
 
     firstSeenAt: ts("first_seen_at").notNull().defaultNow(),
     lastCheckedAt: ts("last_checked_at"),
@@ -273,6 +295,35 @@ export const notices = pgTable(
     index("notices_search_idx").using("gin", t.search),
   ],
 );
+
+/**
+ * Files uploaded by editors (official notification PDFs). Stored in the database by default —
+ * the deployment (Vercel + Supabase Postgres) has no writable disk or configured object store —
+ * or in Supabase Storage when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set (`data` is then null).
+ */
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+export const uploads = pgTable("uploads", {
+  id: serial("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  contentType: text("content_type").notNull(),
+  size: integer("size").notNull(),
+  sha256: text("sha256").notNull(),
+  storage: text("storage", { enum: ["database", "supabase"] }).notNull().default("database"),
+  storageKey: text("storage_key"),
+  data: bytea("data"),
+  /** Text extracted from the PDF when uploaded (first ~20k characters), shown to the editor. */
+  extractedText: text("extracted_text"),
+  uploadedBy: integer("uploaded_by").references(() => adminUsers.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+});
+
+/** Editable website settings (popular searches, announcement banner). Values are JSON. */
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedBy: integer("updated_by").references(() => adminUsers.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+});
 
 export const noticeQualifications = pgTable(
   "notice_qualifications",

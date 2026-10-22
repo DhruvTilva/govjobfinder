@@ -28,7 +28,9 @@ const securityHeaders = [
 const config: NextConfig = {
   poweredByHeader: false,
   turbopack: { root: import.meta.dirname },
-  serverExternalPackages: ["@electric-sql/pglite", "postgres"],
+  serverExternalPackages: ["@electric-sql/pglite", "postgres", "sharp"],
+  // Logo uploads go through a server action (logos are limited to 1 MB; this leaves room for the form).
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
