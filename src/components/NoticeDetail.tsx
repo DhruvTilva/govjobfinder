@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { getNotice } from "@/lib/queries";
 import { uploadPath } from "@/lib/storage";
 import { OrgBadge } from "./NoticeCard";
-import { daysLeft, displayStatus, KIND_PATH, noticeHref } from "@/lib/status";
+import { daysLeft, displayStatus, KIND_LABEL, KIND_PATH, noticeHref } from "@/lib/status";
+import { educationLd, graph, ORG_ID, organizationLd, textToHtml, WEBSITE_ID } from "@/lib/seo";
+import { logoPath } from "@/lib/logo-url";
 import { hostnameOf, isOfficialUrl, safeHref } from "@/lib/url";
 import { siteUrl } from "@/lib/site";
 import { todayIST } from "@/pipeline/dates";
@@ -339,6 +341,7 @@ export async function NoticeDetail({ data }: { data: Data }) {
           )}
         </aside>
       </div>
+      <ArticleLd data={data} />
       {isJob && ds !== "closed" && n.status === "published" && <JobPostingLd data={data} />}
     </div>
   );
@@ -410,18 +413,25 @@ function JobPostingLd({ data }: { data: Data }) {
     .filter(Boolean)
     .join("\n\n");
   if (!description || !data.orgName) return null;
+  const education = educationLd(data.quals);
   return (
     <JsonLd
       data={{
         "@context": "https://schema.org",
         "@type": "JobPosting",
         title: n.title,
-        description,
+        description: textToHtml(description),
         datePosted: (n.publishedAt ?? n.firstSeenAt).toISOString(),
         ...(n.applyEnd ? { validThrough: `${n.applyEnd}T23:59:59+05:30` } : {}),
         ...(n.totalPosts ? { totalJobOpenings: n.totalPosts } : {}),
         ...(EMPLOYMENT_TYPE[n.jobType] ? { employmentType: EMPLOYMENT_TYPE[n.jobType] } : {}),
-        hiringOrganization: { "@type": "Organization", name: data.orgName, ...(data.orgWebsite ? { sameAs: data.orgWebsite } : {}) },
+        ...(education ? { educationRequirements: education } : {}),
+        hiringOrganization: {
+          "@type": "Organization",
+          name: data.orgName,
+          ...(data.orgWebsite ? { sameAs: data.orgWebsite } : {}),
+          ...(data.orgLogoId ? { logo: siteUrl(logoPath(data.orgLogoId)) } : {}),
+        },
         jobLocation: {
           "@type": "Place",
           address: { "@type": "PostalAddress", addressCountry: "IN", ...(data.stateName ? { addressRegion: data.stateName } : {}) },
@@ -431,6 +441,35 @@ function JobPostingLd({ data }: { data: Data }) {
         url: siteUrl(noticeHref(n)),
         directApply: false,
       }}
+    />
+  );
+}
+
+/** schema.org Article for every notice page (results, admit cards and recruitments alike). */
+function ArticleLd({ data }: { data: Data }) {
+  const { n } = data;
+  const url = siteUrl(noticeHref(n));
+  const description = n.summary ?? `${n.title}${data.orgName ? ` – ${data.orgName}` : ""}. Official notification link, eligibility and important dates.`;
+  return (
+    <JsonLd
+      data={graph({
+        "@type": "Article",
+        "@id": `${url}#article`,
+        headline: n.title.length > 110 ? n.title.slice(0, 107) + "…" : n.title,
+        description,
+        url,
+        mainEntityOfPage: { "@type": "WebPage", "@id": url },
+        datePublished: (n.publishedAt ?? n.firstSeenAt).toISOString(),
+        dateModified: n.updatedAt.toISOString(),
+        // Per-notice OG image paths carry a build hash, so use the stable site images here.
+        image: [siteUrl("/opengraph-image"), siteUrl("/logo.png")],
+        author: { "@id": ORG_ID },
+        publisher: { "@id": ORG_ID },
+        isPartOf: { "@id": WEBSITE_ID },
+        articleSection: KIND_LABEL[n.kind],
+        inLanguage: "en-IN",
+        ...(data.orgName ? { about: { "@type": "Organization", name: data.orgName, ...(data.orgWebsite ? { sameAs: data.orgWebsite } : {}) } } : {}),
+      }, organizationLd())}
     />
   );
 }

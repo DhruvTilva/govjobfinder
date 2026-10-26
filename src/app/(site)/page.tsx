@@ -1,3 +1,4 @@
+import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -21,10 +22,23 @@ import { JobRow, qualList } from "@/components/NoticeCard";
 import { AlertsCard } from "@/components/AlertsCard";
 import { ChevronRight,DocIcon, PinIcon, SearchIcon, ShieldIcon } from "@/components/icons";
 import { JsonLd } from "@/components/JsonLd";
-import { SITE_NAME, siteUrl } from "@/lib/site";
+import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
+import { graph, ORG_ID, organizationLd, WEBSITE_ID, websiteLd } from "@/lib/seo";
 import { getDb } from "@/db/client";
 import { getSiteSettings } from "@/lib/content";
 
+
+export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
+  const year = todayIST().slice(0, 4);
+  const title = `Sarkari Naukri ${year} – Latest Govt Jobs, Results & Admit Cards | ${SITE_NAME}`;
+  return {
+    title: { absolute: title },
+    description: SITE_DESCRIPTION,
+    alternates: { canonical: "/" },
+    // Setting openGraph here drops the inherited opengraph-image, so carry it over.
+    openGraph: { title, description: SITE_DESCRIPTION, url: "/", type: "website", siteName: SITE_NAME, locale: "en_IN", images: (await parent).openGraph?.images },
+  };
+}
 
 /** Feed tabs: each is a real filter on published recruitments. */
 const FEED_TABS: { key: string; label: MessageKey; filters: Filters; more: string }[] = [
@@ -79,13 +93,18 @@ export default async function HomePage({ searchParams }: Props) {
   return (
     <>
       <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          name: SITE_NAME,
-          url: siteUrl(),
-          potentialAction: { "@type": "SearchAction", target: `${siteUrl("/jobs")}?q={search_term_string}`, "query-input": "required name=search_term_string" },
-        }}
+        data={graph(organizationLd(), websiteLd(), {
+          "@type": "WebPage",
+          "@id": siteUrl("/#webpage"),
+          url: siteUrl("/"),
+          name: `${SITE_NAME} – ${t("home.title")}`,
+          description: SITE_DESCRIPTION,
+          isPartOf: { "@id": WEBSITE_ID },
+          about: { "@id": ORG_ID },
+          primaryImageOfPage: { "@type": "ImageObject", url: siteUrl("/opengraph-image") },
+          ...(fresh.lastRunAt ? { dateModified: fresh.lastRunAt.toISOString() } : {}),
+          inLanguage: lang === "hi" ? "hi-IN" : "en-IN",
+        })}
       />
 
       {/* Freshness strip */}

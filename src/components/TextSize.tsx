@@ -10,8 +10,22 @@ const SIZES = [
 ] as const;
 const KEY = "gjf:text-size";
 
-/** Inline script for <head>: applies the saved size before first paint. */
-export const textSizeBootScript = `try{var s=localStorage.getItem("${KEY}");var m={sm:"93.75%",lg:"112.5%"};if(m[s])document.documentElement.style.fontSize=m[s];}catch(e){}`;
+const bootScript = `try{var s=localStorage.getItem("${KEY}");var m={sm:"93.75%",lg:"112.5%"};if(m[s])document.documentElement.style.fontSize=m[s];}catch(e){}`;
+
+/**
+ * Inline script for <head>: applies the saved size before first paint.
+ * Must stay in a Client Component: the `typeof window` check has to run in the browser too,
+ * so the client renders the tag inert (avoids React 19's "script tag" dev warning).
+ */
+export function TextSizeBootScript() {
+  return (
+    <script
+      type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: bootScript }}
+    />
+  );
+}
 
 export function TextSize() {
   const t = useT();
