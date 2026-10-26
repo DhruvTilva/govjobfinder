@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { getDb } from "@/db/client";
 import { organizations, qualifications, sectors, states } from "@/db/schema";
 import { sitemapEntries } from "@/lib/queries";
-import { noticeHref } from "@/lib/status";
+import { KIND_PATH, noticeHref } from "@/lib/status";
 import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +16,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     db.select({ slug: organizations.slug, updatedAt: organizations.updatedAt }).from(organizations),
     db.select({ slug: qualifications.slug }).from(qualifications),
   ]);
-  const now = new Date();
-  const fixed = ["/", "/jobs", "/admit-cards", "/results", "/answer-keys", "/admissions", "/updates", "/states", "/sectors", "/qualifications", "/exams", "/tools/eligibility", "/about", "/faq", "/user-guide", "/privacy-policy", "/terms-of-use", "/disclaimer"];
+  // lastmod must be truthful or Google ignores it: listings take their newest notice, static pages none.
+  const latest = notices[0]?.updatedAt;
+  const latestByPath = new Map<string, Date>();
+  for (const n of notices) if (!latestByPath.has(KIND_PATH[n.kind])) latestByPath.set(KIND_PATH[n.kind], n.updatedAt);
+  const listings = ["/", "/jobs", "/admit-cards", "/results", "/answer-keys", "/admissions", "/updates"];
+  const hubs = ["/states", "/sectors", "/qualifications", "/exams", "/tools/eligibility"];
+  const info = ["/about", "/faq", "/user-guide", "/privacy-policy", "/terms-of-use", "/disclaimer"];
   return [
-    ...fixed.map((p) => ({ url: siteUrl(p), lastModified: now, changeFrequency: "hourly" as const, priority: p === "/" ? 1 : 0.8 })),
+    ...listings.map((p) => ({ url: siteUrl(p), lastModified: (p === "/" ? latest : latestByPath.get(p)) ?? latest, changeFrequency: "hourly" as const, priority: p === "/" ? 1 : 0.9 })),
+    ...hubs.map((p) => ({ url: siteUrl(p), lastModified: latest, changeFrequency: "daily" as const, priority: 0.7 })),
+    ...info.map((p) => ({ url: siteUrl(p), changeFrequency: "yearly" as const, priority: 0.3 })),
     ...st.map((s) => ({ url: siteUrl(`/states/${s.slug}`), changeFrequency: "daily" as const, priority: 0.7 })),
     ...se.map((s) => ({ url: siteUrl(`/sectors/${s.slug}`), changeFrequency: "daily" as const, priority: 0.7 })),
     ...qu.map((q) => ({ url: siteUrl(`/qualifications/${q.slug}`), changeFrequency: "daily" as const, priority: 0.6 })),
