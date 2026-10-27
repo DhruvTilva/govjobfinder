@@ -9,6 +9,7 @@ import {
   listNotices,
   listStates,
   recentUpdateCounts,
+  sectorsByState,
   stateRecruiterNames,
   topRecruiters,
   type Filters,
@@ -68,7 +69,7 @@ export default async function HomePage({ searchParams }: Props) {
   const sp = await searchParams;
   const tab = FEED_TABS.find((x) => x.key === sp.feed) ?? FEED_TABS[0];
   const today = todayIST();
-  const [boardJobs, admit, results, feed, counts, fresh, opts, stateRows, recruiters, stateNames, recent, settings] = await Promise.all([
+  const [boardJobs, admit, results, feed, counts, fresh, opts, stateRows, recruiters, stateNames, recent, settings, stateSectors] = await Promise.all([
     listNotices({}, "recruitment", 6),
     listNotices({ kind: "admit_card" }, "admit_card", 6),
     listNotices({ kind: "result" }, "result", 6),
@@ -81,6 +82,7 @@ export default async function HomePage({ searchParams }: Props) {
     stateRecruiterNames(),
     recentUpdateCounts(),
     getDb().then(getSiteSettings),
+    sectorsByState(),
   ]);
 
   const localOpts = {
@@ -316,7 +318,7 @@ export default async function HomePage({ searchParams }: Props) {
           </section>
 
           <aside className="min-w-0 space-y-4 lg:col-span-4 xl:col-span-3">
-            <AlertsCard states={localOpts.states} sectors={localOpts.sectors} qualifications={localOpts.qualifications} siteUrl={siteUrl()} />
+            <AlertsCard states={localOpts.states} sectors={localOpts.sectors} qualifications={localOpts.qualifications} stateSectors={stateSectors} />
 
             <section className="card p-3.5" aria-labelledby="toolbox">
               <div className="mb-2 flex items-center justify-between border-b border-line pb-2">
