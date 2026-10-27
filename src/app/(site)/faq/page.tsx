@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 const FAQ: [string, string][] = [
   [
-    "Is GovJobFinder a government website?",
+    `Is ${SITE_NAME} a government website?`,
     "No. We are an independent service. We read official government recruitment websites and link to them; applications are always made on the official portal.",
   ],
   [

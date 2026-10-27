@@ -25,7 +25,7 @@ export default async function SectorsPage() {
               <Link href={`/sectors/${s.slug}`} className="card block h-full p-4 hover:bg-navy-50">
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-ink">{sectorName(lang, s.slug, s.name)}</span>
-                  <span className={n ? "chip bg-ok-soft text-ok" : "text-xs text-muted"}>{n ? t("common.active", { n }) : "–"}</span>
+                  <span className={n ? "chip shrink-0 whitespace-nowrap bg-ok-soft text-ok" : "text-xs text-muted"}>{n ? t("common.active", { n }) : "–"}</span>
                 </span>
                 <span className="mt-1 block text-sm text-muted">{sectorDescription(lang, s.slug, s.description)}</span>
               </Link>

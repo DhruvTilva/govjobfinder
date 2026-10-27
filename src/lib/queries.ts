@@ -261,6 +261,31 @@ export async function getFilterOptions() {
   return { states: st, sectors: se, qualifications: qu };
 }
 
+/**
+ * Sector slugs that have active recruitments, keyed by state slug ("central" for
+ * central-govt notices). Mirrors the default /jobs filter so a picked combo is never empty.
+ */
+export async function sectorsByState(): Promise<Record<string, string[]>> {
+  const db = await getDb();
+  const today = todayIST();
+  const rows = await db
+    .selectDistinct({ state: states.slug, central: notices.isCentral, sector: sectors.slug })
+    .from(notices)
+    .innerJoin(sectors, eq(notices.sectorId, sectors.id))
+    .leftJoin(states, eq(notices.stateId, states.id))
+    .where(and(eq(notices.status, "published"), eq(notices.kind, "recruitment"), or(isNull(notices.applyEnd), gte(notices.applyEnd, today))));
+  const out: Record<string, string[]> = {};
+  const add = (key: string, sector: string) => {
+    const list = (out[key] ??= []);
+    if (!list.includes(sector)) list.push(sector);
+  };
+  for (const r of rows) {
+    if (r.central) add("central", r.sector);
+    if (r.state) add(r.state, r.sector);
+  }
+  return out;
+}
+
 /** Active (open or undated, published) recruitment counts grouped by state and by sector. */
 export async function activeCounts() {
   const db = await getDb();

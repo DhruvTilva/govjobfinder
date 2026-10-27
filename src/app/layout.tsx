@@ -38,7 +38,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <TextSizeBootScript />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      {/* Browser extensions add attributes to <body> before React loads; ignore those (this level only). */}
+      <body className="min-h-screen antialiased" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }

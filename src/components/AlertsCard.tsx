@@ -1,36 +1,44 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useT } from "./LangProvider";
+import { SearchIcon } from "./icons";
 
 type Opt = { slug: string; name: string };
 
 /**
- * Builds a personal RSS feed URL for the chosen filters. No sign-up and no
- * personal data: the filters live in the URL, and any feed reader can follow it.
+ * Quick state / sector / qualification picker that opens the matching /jobs
+ * listing. The sector list narrows to sectors with active jobs in the chosen state.
  */
-export function AlertsCard({ states, sectors, qualifications, siteUrl }: { states: Opt[]; sectors: Opt[]; qualifications: Opt[]; siteUrl: string }) {
+export function AlertsCard({
+  states,
+  sectors,
+  qualifications,
+  stateSectors,
+}: {
+  states: Opt[];
+  sectors: Opt[];
+  qualifications: Opt[];
+  stateSectors: Record<string, string[]>;
+}) {
   const t = useT();
   const [state, setState] = useState("");
   const [sector, setSector] = useState("");
   const [qual, setQual] = useState("");
-  const [copied, setCopied] = useState(false);
+  const allowed = state ? new Set(stateSectors[state] ?? []) : null;
+  const sectorOpts = allowed ? sectors.filter((s) => allowed.has(s.slug)) : sectors;
+
+  const pickState = (v: string) => {
+    setState(v);
+    if (v && sector && !(stateSectors[v] ?? []).includes(sector)) setSector("");
+  };
+
   const params = new URLSearchParams();
   if (state) params.set("state", state);
   if (sector) params.set("sector", sector);
   if (qual) params.set("qual", qual);
-  params.set("kind", "recruitment");
-  const url = `${siteUrl}/feed.xml?${params}`;
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked — the URL is visible to copy manually */
-    }
-  };
+  const href = params.size ? `/jobs?${params}` : "/jobs";
 
   const sel = "w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[#fd651e]";
   return (
@@ -47,7 +55,7 @@ export function AlertsCard({ states, sectors, qualifications, siteUrl }: { state
         <label className="sr-only" htmlFor="al-state">
           {t("list.state")}
         </label>
-        <select id="al-state" value={state} onChange={(e) => setState(e.target.value)} className={sel}>
+        <select id="al-state" value={state} onChange={(e) => pickState(e.target.value)} className={sel}>
           <option value="">{t("common.allIndia")}</option>
           <option value="central">{t("common.centralGovt")}</option>
           {states.map((s) => (
@@ -61,7 +69,7 @@ export function AlertsCard({ states, sectors, qualifications, siteUrl }: { state
         </label>
         <select id="al-sector" value={sector} onChange={(e) => setSector(e.target.value)} className={sel}>
           <option value="">{t("home.allSectors")}</option>
-          {sectors.map((s) => (
+          {sectorOpts.map((s) => (
             <option key={s.slug} value={s.slug}>
               {s.name}
             </option>
@@ -79,15 +87,10 @@ export function AlertsCard({ states, sectors, qualifications, siteUrl }: { state
           ))}
         </select>
       </div>
-      <p className="mt-3 break-all rounded-md bg-white/10 px-2.5 py-1.5 font-mono text-[11px] text-white/85">{url}</p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" onClick={copy} className="btn bg-[#fd651e] py-2 text-white hover:bg-[#e4560f]">
-          {copied ? t("alerts.copied") : t("alerts.copy")}
-        </button>
-        <a href={url} target="_blank" rel="noopener" className="btn bg-white/10 py-2 text-white hover:bg-white/20">
-          {t("alerts.open")}
-        </a>
-      </div>
+      <Link href={href} className="btn mt-3 w-full gap-1.5 bg-[#fd651e] py-2.5 text-white hover:bg-[#e4560f]">
+        <SearchIcon className="h-4 w-4" />
+        {t("alerts.search")}
+      </Link>
     </section>
   );
 }

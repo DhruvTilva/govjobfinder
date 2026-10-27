@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { issueCode, sendTelegramMessage, telegramEnabled, webhookSecretMatches } from "@/lib/user-auth";
+import { SITE_NAME } from "@/lib/site";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   const m = /^\/start(?:@\w+)?(?:\s+(\S+))?$/.exec(msg.text.trim());
   if (!m) return NextResponse.json({ ok: true });
   if (!m[1]) {
-    await sendTelegramMessage(msg.chat.id, 'To log in, open the GovJobFinder website, choose "Continue with Telegram", and tap the button there.');
+    await sendTelegramMessage(msg.chat.id, `To log in, open the ${SITE_NAME} website, choose "Continue with Telegram", and tap the button there.`);
     return NextResponse.json({ ok: true });
   }
   const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ").slice(0, 120);
@@ -26,8 +27,8 @@ export async function POST(req: Request) {
   await sendTelegramMessage(
     msg.chat.id,
     code
-      ? `Your GovJobFinder login code is ${code}\n\nIt is valid for 10 minutes. Never share it with anyone. If you did not ask for it, ignore this message.`
-      : "This login link has expired. Please go back to the GovJobFinder website and start again.",
+      ? `Your ${SITE_NAME} login code is ${code}\n\nIt is valid for 10 minutes. Never share it with anyone. If you did not ask for it, ignore this message.`
+      : `This login link has expired. Please go back to the ${SITE_NAME} website and start again.`,
   );
   return NextResponse.json({ ok: true });
 }
